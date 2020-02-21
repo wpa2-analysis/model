@@ -1,0 +1,96 @@
+dnl This file specifies the encryption layer mechanism used for the
+dnl formal model of WPA2.
+dnl
+dnl $1 = Message, $2 = senderThreadID, $3 = messageID $4 = RuleName
+define(OutEnc, <!Out_$4($1, $2, $3)!>)
+dnl $1 = RuleName, $2 = Auth or Supp
+define(EncryptionRule, 
+<!dnl
+rule OutRule_Enc_$1 [color=ffd447]:
+    let PTK = KDF(<PMK, ANonce, SNonce>)
+ 		nonce = <N(n), ~senderID>
+		newNonce = <N(n+'1'), ~senderID>
+	in
+    [ Out_$1(message, ~senderThreadID, ~messageID)
+    , $2SenderPTK(~ptkID, ~senderThreadID, ~senderID, PTK, nonce) ]
+    --[ EncryptedWithPTK(~ptkID, ~senderThreadID, ~senderID, PTK, newNonce)
+      , $2EncryptedWithPTK(~ptkID, ~senderThreadID, ~senderID, PTK, newNonce)
+      , EncryptedWithOrInstalledPTK(~ptkID, ~senderThreadID, ~senderID,
+                                    PTK, newNonce)
+      , SendMessage(~senderThreadID, ~messageID) ]->
+    [ Out(snenc(message, PTK, newNonce))
+    , $2SenderPTK(~ptkID, ~senderThreadID, ~senderID, PTK, newNonce) ]
+!>)
+define(PlainRule,
+<!dnl
+rule OutRule_$1 [color=ffffff]:
+	[ Out_$1(message, ~senderThreadID, ~messageID) ]
+	--[ SendMessage(~senderThreadID, ~messageID) ]->
+	[ Out(message) ]dnl
+!>)
+define(OutEncRule,
+<!dnl
+EncryptionRule($1, $2)
+ifelse($3, only_encrypted, , PlainRule($1))
+!>)
+
+define(SendPTKEncryptedPayloadRule,
+<!dnl
+rule sendPTKEncryptedPayload_$1 [color=ffd447]:
+    let PTK = KDF(<PMK, ANonce, SNonce>) 
+		nonce = <N(n), ~senderID>
+		newNonce = <N(n+'1'), ~senderID>
+	in
+    [ $1SenderPTK(~ptkID, ~senderThreadID, ~senderID, PTK, nonce) ]
+    --[ EncryptedWithPTK(~ptkID, ~senderThreadID, ~senderID, PTK, newNonce)
+      , $1EncryptedWithPTK(~ptkID, ~senderThreadID, ~senderID, PTK, newNonce)
+      , EncryptedWithOrInstalledPTK(~ptkID, ~senderThreadID, ~senderID, 
+                                    PTK, newNonce)
+      , SendPTKEncryptedPayload(~ptkID, ~senderThreadID, ~senderID, 
+                                PTK, newNonce) ]->
+    [ Out(snenc(<'data', $message>, PTK, newNonce))
+    , $1SenderPTK(~ptkID, ~senderThreadID, ~senderID, PTK, newNonce) ]
+!>)
+
+SendPTKEncryptedPayloadRule(Auth)
+
+SendPTKEncryptedPayloadRule(Supp)
+
+define(InEnc, <!In_$4($1, $2, $3)!>)
+
+define(ReceivePlainRule,
+<!dnl
+rule Receive_Clear_Message_$1 [color=ffffff]:
+    [ In(message)
+    , !$1ReceiverPTK(~ptkID, ~receiverThreadID, ~receiverID, kNullPTK,
+                     ~pointerPTK) ]
+    --[ Read(~pointerPTK) ]->
+    [ InEnc(message, ~receiverThreadID, kNullPTK, $1) ]
+!>)
+
+define(ReceiveEncryptedRule,
+<!dnl
+rule Receive_Encrypted_Message_$1 [color=ffd447]:
+    let 
+        PTK = KDF(<PMK, ANonce, SNonce>) 
+        nonce = <N(n), senderID>
+    in
+    [ In(snenc(message, PTK, nonce))
+    , !$1ReceiverPTK(~ptkID, ~receiverThreadID, ~receiverID, PTK,
+                     ~pointerPTK)[no_precomp] ]
+    --[ Neq(PTK, kNullPTK)
+      , SeesNonceForPTK(~ptkID, ~receiverThreadID, 
+                        PTK, nonce)
+      , Read(~pointerPTK) ]->
+    [ InEnc(message, ~receiverThreadID, PTK, $1) ]
+!>)
+
+ReceivePlainRule(Auth)
+
+ReceivePlainRule(Supp)
+
+ReceiveEncryptedRule(Auth)
+
+ReceiveEncryptedRule(Supp)
+
+
