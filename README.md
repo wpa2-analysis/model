@@ -62,6 +62,10 @@ The folder [traces](traces) contains a Tamarin file with an attack trace for a [
 
 In the picture of the trace, the authenticator is colored purple whereas the supplicant is colored blue. Notice how the rule *Supp_Install_Key_Snd_M4* occurs twice, leading to the reinstallation of the PTK `KDF(<~PMK, ~ANonce, ~SNonce>)`. This resets the corresponding nonce. Since the supplicant sends two different messages (yellow rule *sendPTKEncryptedPayloadSupp*) with the same key and the same nonce, this allows the attacker to learn the PTK with the (red) rule *KeyRevealFromNonceReuse*.
 
+## Kr00k Vulnerability
+
+The [Kr00k vulnerability](https://www.eset.com/int/kr00k/), reported a few days after submission of our paper, does not indicate a vulnerability in the IEEE standard that we analyze; rather, it is related to a flaw in the implementations of some Wi-Fi chips. In particular, a Kr00k attack exploits that---counter to the expected behavior---some (unpatched) Wi-Fi chips still encrypt and transmit messages after a client has been disassociated. The discovery of the Kr00k vulnerability therefore doesn't invalidate any of the results of our analysis. Note that one can observe that Kr00k also has no consequences for the IEEE documents.
+
 ## USENIX Artifact Submission
 
 For the USENIX artifact evaluation, we will additionally produce a virtual machine containing the files contained in this repository as well as a pre-installed Tamarin and automatic reproduction scripts in the next weeks.
