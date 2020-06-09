@@ -4,7 +4,7 @@ dnl Lines starting with 'dnl' are comments for the preprocessor m4.
 
 dnl Set 'INCLUDE_PATCHES' to true/false to activate/deactivate the patches
 dnl aimed at preventing key-reinstallation attacks.
-define(INCLUDE_PATCHES, true)
+define(INCLUDE_PATCHES, false)
 
 dnl Tamarin uses '', which is an m4 close quote, so use <! !> for quoting.
 changequote(<!,!>)
@@ -20,6 +20,8 @@ define(kRequestSleep, 'REQUEST_SLEEP')
 define(kAcceptSleep, 'ACCEPT_SLEEP')
 define(kRequestAwake, 'REQUEST_AWAKE')
 define(kAcceptAwake, 'ACCEPT_AWAKE')
+define(kDataFrame, 'DF')
+define(kManagementFrame, 'MF')
 
 theory wpa2_four_way_handshake 
 
@@ -32,6 +34,15 @@ builtins: symmetric-encryption, multiset
 equations: sndec(snenc(message, key, nonce), key) = message
 
 // BEGIN Restrictions
+
+/*// TODO: remove*/
+/**/
+/*restriction OnePairOfAuthSupp:*/
+/*    "All authID1 authThreadID1 suppID1 suppThreadID1 PMK1*/
+/*         authID2 authThreadID2 suppID2 suppThreadID2 PMK2 #i #j.*/
+/*    Associate(authID1, authThreadID1, suppID1, suppThreadID1, PMK1) @ i &*/
+/*    Associate(authID2, authThreadID2, suppID2, suppThreadID2, PMK2) @ j*/
+/*    ==> #i = #j"*/
 
 restriction Neq:
     "All x y #i. Neq(x, y) @ i ==> not(x = y)"
@@ -86,9 +97,11 @@ restriction ReplayCounterGroupKeyRekey:
                     SupplicantSeesCounter(suppThreadID, PMK, ctr) @ j"
 
 restriction ReplayCounterPairwiseMessages:
-    "All ptkID receiverThreadID senderID PTK n1 n2 #i #j.
-     SeesNonceForPTK(ptkID, receiverThreadID, PTK, <N(n1), senderID>) @ i &
-     SeesNonceForPTK(ptkID, receiverThreadID, PTK, <N(n2), senderID>) @ j & 
+    "All ptkID receiverThreadID senderID PTK n1 n2 frameType #i #j.
+     SeesNonceForPTK(ptkID, receiverThreadID, PTK, 
+                     <N(n1), senderID, frameType>) @ i &
+     SeesNonceForPTK(ptkID, receiverThreadID, PTK, 
+                     <N(n2), senderID, frameType>) @ j & 
      i < j
      ==>  Ex z. n1 + z = n2"
 
@@ -157,8 +170,8 @@ rule Auth_Associate_With_Supp:
     [ Fr(~PMK)
     , Fr(~authThreadID)
     , Fr(~suppThreadID)
-    , Fr(~authPTKID)
-    , Fr(~suppPTKID)
+    , Fr(~authReceiverPtkID)
+    , Fr(~suppReceiverPtkID)
     , Fr(~pointerAuthPTK)
     , Fr(~pointerSuppPTK)
     , Fr(~nullGTKID)
@@ -172,9 +185,9 @@ rule Auth_Associate_With_Supp:
                 <~suppID, ~PMK, ~authThreadID, initialPTK, initialSuppGTKData, 
                  'NULL_ANonce', 'NULL_SNonce', S('NULL')>)
     , !PairwiseMasterKey(~PMK, ~authID, ~authThreadID, ~suppID, ~suppThreadID)
-    , !AuthReceiverPTK(~authPTKID, ~authThreadID, ~authID, initialPTK,
+    , !AuthReceiverPTK(~authReceiverPtkID, ~authThreadID, ~authID, initialPTK,
                        ~pointerAuthPTK)
-    , !SuppReceiverPTK(~suppPTKID, ~suppThreadID, ~suppID, initialPTK, 
+    , !SuppReceiverPTK(~suppReceiverPtkID, ~suppThreadID, ~suppID, initialPTK, 
                        ~pointerSuppPTK)
     , ReceiverGTK(~suppThreadID, ~nullGTKID, ~PMK,
                   kNullGTK, kNullGTKNonce, kNullGTKIndex)
@@ -297,7 +310,7 @@ rule Auth_Snd_M1 [color=ddb4ff]:
     , !UsedCounterInPTKHandshake(~authThreadID, ~ANonce, ctr_plus_1)
     , OutEnc(m1, ~authThreadID, ~messageID, Auth_Snd_M1, Auth) ]
 
-OutEncRule(Auth_Snd_M1, Auth)
+OutEncRuleDataFrame(Auth_Snd_M1, Auth)
 
 rule Auth_Snd_M1_repeat [color=ddb4ff]:
     let 
@@ -317,7 +330,7 @@ rule Auth_Snd_M1_repeat [color=ddb4ff]:
     , !UsedCounterInPTKHandshake(~authThreadID, ~ANonce, ctr_plus_1)
     , OutEnc(m1, ~authThreadID, ~messageID, Auth_Snd_M1_repeat, Auth) ]
 
-OutEncRule(Auth_Snd_M1_repeat, Auth)
+OutEncRuleDataFrame(Auth_Snd_M1_repeat, Auth)
 
 rule Auth_Rcv_M2 [color=ddb4ff]:
     let 
@@ -381,7 +394,7 @@ rule Auth_Check_MIC_M2_Snd_M3 [color=ddb4ff]:
     , OutEnc(<!<m3, MIC(newPTK, m3)>!>, ~authThreadID, ~messageID, 
              Auth_Check_MIC_M2_Snd_M3, Auth) ]
 
-OutEncRule(Auth_Check_MIC_M2_Snd_M3, Auth)
+OutEncRuleDataFrame(Auth_Check_MIC_M2_Snd_M3, Auth)
 
 rule Auth_Snd_M3_repeat [color=ddb4ff]:
     let 
@@ -411,43 +424,49 @@ rule Auth_Snd_M3_repeat [color=ddb4ff]:
     , OutEnc(<!<m3, MIC(newPTK, m3)>!>, ~authThreadID, ~messageID, 
              Auth_Snd_M3_repeat, Auth) ]
 
-OutEncRule(Auth_Snd_M3_repeat, Auth)
+OutEncRuleDataFrame(Auth_Snd_M3_repeat, Auth)
 
 // Might want to check if we accept messages encrypted with the old PTK
 rule Auth_Rcv_M4_Install_Key [color=ddb4ff]:
     let 
         oldPTK = KDF(<PMK1, ANonce1, SNonce1>)
         newPTK = KDF(<~PMK, ~ANonce, SNonce>)
-        ptkNonce = <kPTKNonceStartNumber, ~authID>
+        dataFrameNonce = <kPTKNonceStartNumber, ~authID, kDataFrame>
+        managementFrameNonce = <kPTKNonceStartNumber, ~authID, kManagementFrame>
         ctr = S(ctr_minus_1)
         fresh_ctr = S(~counter)
         m4 = S(ctr_m4_minus_1)
     in
     [ AuthState(~authThreadID, 'PTK_CALC_NEGOTIATING3', 
                 <~authID, ~PMK, ~suppThreadID, oldPTK, ~ANonce, SNonce, ctr>)
-    , !AuthReceiverPTK(~oldPTKID, ~authThreadID, ~authID, oldPTK,
+    , !AuthReceiverPTK(~oldReceiverPtkID, ~authThreadID, ~authID, oldPTK,
                        ~oldPointerPTK)[no_precomp] 
     , InEnc(<!<m4, mic_m4>!>, ~authThreadID, oldPTK, Auth)[no_precomp, -]
     , !UsedCounterInPTKHandshake(~authThreadID, ~ANonce, m4)[-]
-    , Fr(~ptkID)
+    , Fr(~dataFramePtkID)
+    , Fr(~managementFramePtkID)
+    , Fr(~newReceiverPtkID)
 	, Fr(~gtkID)
     , Fr(~counter)
     , Fr(~newPointerPTK) ]
-    --[ AuthenticatorInstalled(~authThreadID, ~authID, ~PMK, ~suppThreadID, newPTK, 
-                               ~ANonce, SNonce, ctr)
+    --[ AuthenticatorInstalled(~authThreadID, ~authID, ~PMK, ~suppThreadID,
+                               newPTK, ~ANonce, SNonce, ctr)
       , AuthenticatorCommit(~authThreadID, ~suppThreadID, 
                             ~PMK, ~ANonce, SNonce, newPTK)
-      , InstalledPTK(~ptkID, ~authThreadID, ~authID, newPTK, ptkNonce)
-      , AuthInstalledPTK(~ptkID, ~authThreadID, ~authID, newPTK, ptkNonce)
-      , EncryptedWithOrInstalledPTK(~ptkID, ~authThreadID, ~authID,
-                                    newPTK, ptkNonce)
+      , AuthInstalledSenderPTK(~dataFramePtkID, ~authThreadID, ~authID, 
+                               newPTK, dataFrameNonce)
+      , AuthInstalledSenderPTK(~managementFramePtkID, ~authThreadID, ~authID,
+                               newPTK, managementFrameNonce)
       , Eq(mic_m4, MIC(newPTK, m4))
       , Free(~oldPointerPTK) ]->
     [ AuthState(~authThreadID, 'PTK_INIT_DONE', 
                 <~authID, ~PMK, ~suppThreadID, newPTK, ~ANonce, SNonce, fresh_ctr>)
     , AuthStartWNMSleepModeThread(~authThreadID, ~authID, ~PMK, oldPTK)
-    , AuthSenderPTK(~ptkID, ~authThreadID, ~authID, newPTK, ptkNonce)
-    , !AuthReceiverPTK(~ptkID, ~authThreadID, ~authID, newPTK,
+    , AuthSenderPTK(~dataFramePtkID, ~authThreadID, ~authID, 
+                    newPTK, dataFrameNonce)
+    , AuthSenderPTK(~managementFramePtkID, ~authThreadID, ~authID, 
+                    newPTK, managementFrameNonce)
+    , !AuthReceiverPTK(~newReceiverPtkID, ~authThreadID, ~authID, newPTK, 
                        ~newPointerPTK) ]
 
 rule Auth_Rekey_PTK [color=a333ff]:
@@ -492,7 +511,7 @@ rule Supp_Rcv_M1_Snd_M2 [color=b5d1ff]:
     , OutEnc(<!<m2, MIC(newPTK, m2)>!>, ~suppThreadID, ~messageID, 
              Supp_Rcv_M1_Snd_M2, Supp) ]
 
-OutEncRule(Supp_Rcv_M1_Snd_M2, Supp)
+OutEncRuleDataFrame(Supp_Rcv_M1_Snd_M2, Supp)
 
 // Here we assume that the Supplicant only accepts resends of message 1 if they 
 // contain the same ANonce as the original message 1. The standard does not 
@@ -522,9 +541,10 @@ rule Supp_Rcv_M1_Snd_M2_repeat [color=b5d1ff]:
     , OutEnc(<!<m2, MIC(newPTK, m2)>!>, ~suppThreadID, ~messageID, 
              Supp_Rcv_M1_Snd_M2_repeat, Supp) ]
 
-OutEncRule(Supp_Rcv_M1_Snd_M2_repeat, Supp)
+OutEncRuleDataFrame(Supp_Rcv_M1_Snd_M2_repeat, Supp)
 
 
+//TODO: Update Action facts with newGTKData instead of newGTK
 rule Supp_Rcv_M3 [color=b5d1ff]:
     let 
         oldPTK = KDF(<PMK1, ANonce1, SNonce1>)
@@ -591,31 +611,39 @@ rule Supp_Install_Key_Snd_M4 [color=b5d1ff]:
     , ReceiverGTK(~suppThreadID, ~newGTKID, ~PMK, 
                   newGTK, newGTKNonce, $newIndex) ]
 
-OutEncRule(Supp_Install_Key_Snd_M4, Supp)
+OutEncRuleDataFrame(Supp_Install_Key_Snd_M4, Supp)
 
 rule Supp_Install_PTK [color=ffc300]:
     let 
         oldPTK = KDF(<PMK1, ANonce1, SNonce1>)
         newPTK = KDF(<~PMK, ANonce, ~SNonce>)
-        ptkNonce = <kPTKNonceStartNumber, ~suppID>
+        dataFrameNonce = <kPTKNonceStartNumber, ~suppID, kDataFrame>
+        managementFrameNonce = <kPTKNonceStartNumber, ~suppID, kManagementFrame>
         GTK = GTK(x)
     in
-    [ Fr(~ptkID)
+    [ Fr(~dataFramePtkID)
+    , Fr(~managementFramePtkID)
+    , Fr(~newReceiverPtkID)
     , Fr(~pointerNewRcvPTK)
     , SuppInstallPTKCommand(~suppThreadID, ~suppID, ~PMK, newPTK, oldPTK, 
                  GTK, ANonce, ~SNonce)
-    , !SuppReceiverPTK(~oldPtkID, ~suppThreadID, ~suppID, oldPTK, 
+    , !SuppReceiverPTK(~oldReceiverPtkID, ~suppThreadID, ~suppID, oldPTK, 
                        ~pointerOldRcvPTK)[no_precomp] ]
-    --[ SupplicantInstalledPTK(~suppThreadID, ~suppID, ~PMK, ~ptkID, newPTK, 
-                               ptkNonce, GTK, ANonce, ~SNonce)
-      , InstalledPTK(~ptkID, ~suppThreadID, ~suppID, newPTK, ptkNonce) 
-      , EncryptedWithOrInstalledPTK(~ptkID, ~suppThreadID, ~suppID,
-                                    newPTK, ptkNonce) 
+    --[ SupplicantInstalledPTK(~suppThreadID, ~suppID, ~PMK, newPTK, 
+                               dataFrameNonce, managementFrameNonce,
+                               GTK, ANonce, ~SNonce)
+      , SuppInstalledSenderPTK(~dataFramePtkID, ~suppThreadID, ~suppID, 
+                               newPTK, dataFrameNonce)
+      , SuppInstalledSenderPTK(~managementFramePtkID, ~suppThreadID, ~suppID, 
+                               newPTK, managementFrameNonce)
       , Free(~pointerOldRcvPTK)
       ifelse(INCLUDE_PATCHES, true, <!, Neq(oldPTK, newPTK)!>,)
       ]->
-    [ SuppSenderPTK(~ptkID, ~suppThreadID, ~suppID, newPTK, ptkNonce)
-    , !SuppReceiverPTK(~ptkID, ~suppThreadID, ~suppID, newPTK, 
+    [ SuppSenderPTK(~dataFramePtkID, ~suppThreadID, ~suppID, 
+                    newPTK, dataFrameNonce)
+    , SuppSenderPTK(~managementFramePtkID, ~suppThreadID, ~suppID, 
+                    newPTK, managementFrameNonce)
+    , !SuppReceiverPTK(~newReceiverPtkID, ~suppThreadID, ~suppID, newPTK, 
                        ~pointerNewRcvPTK)
     , SuppStartWNMSleepModeThread(~suppThreadID, ~suppID, ~PMK, oldPTK) ]
 
@@ -709,7 +737,7 @@ rule Supp_Rekey_GroupKey [color=3381ff]:
 	, OutEnc(<!<ctr_rekey, MIC(PTK, ctr_rekey)>!>, ~suppThreadID, ~messageID,
              Supp_Rekey_GroupKey, Supp) ]
 
-OutEncRule(Supp_Rekey_GroupKey, Supp)
+OutEncRuleDataFrame(Supp_Rekey_GroupKey, Supp)
 
 
 // We allow group key handshakes only when the authenticator is in the DONE
@@ -788,7 +816,7 @@ rule Auth_Rekey_GroupKey_Init [color=a333ff]:
 	, OutEnc(<!<rekeyMsg, MIC(PTK, rekeyMsg)>!>, ~authThreadID, ~messageID,
              Auth_Rekey_GroupKey_Init, Auth) ]
 
-OutEncRule(Auth_Rekey_GroupKey_Init, Auth)
+OutEncRuleDataFrame(Auth_Rekey_GroupKey_Init, Auth)
 
 rule Auth_Rekey_GroupKey_Init_repeat [color=a333ff]:
 	let
@@ -817,7 +845,7 @@ rule Auth_Rekey_GroupKey_Init_repeat [color=a333ff]:
 	, OutEnc(<!<rekeyMsg, MIC(PTK, rekeyMsg)>!>, ~authThreadID, ~messageID, 
              Auth_Rekey_GroupKey_Init_repeat, Auth) ]
 
-OutEncRule(Auth_Rekey_GroupKey_Init_repeat, Auth)
+OutEncRuleDataFrame(Auth_Rekey_GroupKey_Init_repeat, Auth)
 
 rule Auth_Deauthenticate_Supplicant [color=a333ff]:
     [ AuthState(~authThreadID, 'REKEYNEGOTIATING', 
@@ -912,7 +940,7 @@ rule Auth_WNM_Accept_Awake_Request [color=ffb4fe]:
              Auth_WNM_Accept_Awake_Request, Auth)
     , AuthWNMState(~authThreadID, 'WNM_STATE', ~authID, ~PMK) ]
 
-OutEncRule(Auth_WNM_Accept_Awake_Request, Auth, only_encrypted)
+OutEncRuleManagementFrame(Auth_WNM_Accept_Awake_Request, Auth, only_encrypted)
 
 
 rule Auth_WNM_Accept_Sleep_Request [color=ffb4fe]:
@@ -922,7 +950,8 @@ rule Auth_WNM_Accept_Sleep_Request [color=ffb4fe]:
         PTK = KDF(~PMK, ANonce, SNonce)
     in
     [ AuthWNMState(~authThreadID, 'WNM_STATE', ~authID, ~PMK) 
-    , !AuthReceiverPTK(~ptkID, ~authThreadID, ~authID, PTK, ~newPointerPTK)[no_precomp]
+    , !AuthReceiverPTK(~receiverPtkID, ~authThreadID, ~authID, PTK, 
+                       ~newPointerPTK)[no_precomp]
     , InEnc(wnmRequestSleepMessage, ~authThreadID, PTK, Auth)[no_precomp]
     , Fr(~messageID) ]
     --[ AuthenticatorAcceptsSleepRequest(~authThreadID, ~authID)
@@ -933,7 +962,7 @@ rule Auth_WNM_Accept_Sleep_Request [color=ffb4fe]:
              Auth_WNM_Accept_Sleep_Request, Auth)
     , AuthWNMState(~authThreadID, 'WNM_STATE', ~authID, ~PMK) ]
 
-OutEncRule(Auth_WNM_Accept_Sleep_Request, Auth, only_encrypted)
+OutEncRuleManagementFrame(Auth_WNM_Accept_Sleep_Request, Auth, only_encrypted)
 
 
 rule Supp_Start_WNM_Sleep_Mode_Thread [color=87e1e6]:
@@ -954,7 +983,7 @@ rule Supp_Send_WNM_Sleep_Request [color=87e1e6]:
     , OutEnc(wnmRequestSleepMessage, ~suppThreadID, ~messageID,
              Supp_Send_WNM_Sleep_Request, Supp) ]
 
-OutEncRule(Supp_Send_WNM_Sleep_Request, Supp, only_encrypted)
+OutEncRuleManagementFrame(Supp_Send_WNM_Sleep_Request, Supp, only_encrypted)
 
 rule Supp_WNM_Receive_Sleep_Accept [color=87e1e6]:
     let
@@ -963,17 +992,17 @@ rule Supp_WNM_Receive_Sleep_Accept [color=87e1e6]:
     in
     [ SuppWNMState(~suppThreadID, 'AWAIT_SLEEP_CONFIRMATION', ~suppID, ~PMK)
    
-    , !SuppReceiverPTK(~ptkID, ~suppThreadID, ~suppID, PTK, 
+    , !SuppReceiverPTK(~receiverPtkID, ~suppThreadID, ~suppID, PTK, 
                        ~pointerRcvPTK)[no_precomp]
     , InEnc(wnmAcceptSleepMessage, ~suppThreadID, PTK, Supp)[no_precomp]
     , Fr(~nullGTKID)
     ifelse(INCLUDE_PATCHES, true, <!dnl
     , ReceiverGTK(~suppThreadID, ~oldGTKID, ~PMK,
-                  oldGTK, oldGTKNonce, $oldIndex)!>,) ]
+                  oldGTK, oldGTKNonce, $oldIndex)[no_precomp]!>,) ]
     --[ SupplicantStartsSleep(~suppThreadID, ~suppID, ~PMK)
       , Read(~pointerRcvPTK) ]->
     [ SuppWNMState(~suppThreadID, 'SLEEP', ~suppID, ~PMK)
-    ifelse(INCLUDE_PATCHES, true <!dnl
+    ifelse(INCLUDE_PATCHES, true, <!dnl
     , ReceiverGTK(~suppThreadID, ~nullGTKID, ~PMK,
                   kNullGTK, kNullGTKNonce, kNullGTKIndex)!>,) ]
 
@@ -989,7 +1018,7 @@ rule Supp_WNM_Send_Awake_Request [color=87e1e6]:
     , OutEnc(wnmRequestAwakeMessage, ~suppThreadID, ~messageID,
              Supp_Send_WNM_Awake_Request, Supp) ]
 
-OutEncRule(Supp_Send_WNM_Awake_Request, Supp, only_encrypted)
+OutEncRuleManagementFrame(Supp_Send_WNM_Awake_Request, Supp, only_encrypted)
 
 rule Supp_WNM_Receive_Awake_Accept [color=87e1e6]:
     let
@@ -1000,7 +1029,7 @@ rule Supp_WNM_Receive_Awake_Accept [color=87e1e6]:
         wnmAcceptWakeUpMessage = <kAcceptAwake, newGTKData>
     in
     [ SuppWNMState(~suppThreadID, 'AWAIT_AWAKE_CONFIRMATION', ~suppID, ~PMK)
-    , !SuppReceiverPTK(~ptkID, ~suppThreadID, ~suppID, PTK, 
+    , !SuppReceiverPTK(~receiverPtkID, ~suppThreadID, ~suppID, PTK, 
                        ~pointerRcvPTK)[no_precomp]
     , InEnc(wnmAcceptWakeUpMessage, ~suppThreadID, PTK, Supp)[no_precomp]
     , ReceiverGTK(~suppThreadID, ~oldGTKID, ~PMK,
@@ -1042,23 +1071,22 @@ lemma association_of_authenticator_with_supplicant_is_unique [reuse]:
 
 lemma authenticator_used_ptks_must_be_installed 
       [reuse, use_induction, heuristic=S]:
-    "All ptkID authID authThreadID ptkInstallerID PTK nonceNumber #i. 
+    "All ptkID authID authThreadID PTK nonceNumber ptkInstallerID frameType #i. 
      AuthEncryptedWithPTK(ptkID, authThreadID, authID,
-                          PTK, <nonceNumber, ptkInstallerID>) @ i 
+                          PTK, <nonceNumber, ptkInstallerID, frameType>) @ i 
      ==> (Ex #j. j < i & 
-          AuthInstalledPTK(ptkID, authThreadID, authID,
-                           PTK, <kPTKNonceStartNumber, authID>)[+] @ j &
+          AuthInstalledSenderPTK(ptkID, authThreadID, authID, PTK, 
+                           <kPTKNonceStartNumber, authID, frameType>)[+] @ j &
           authID = ptkInstallerID)"
 
 lemma supplicant_used_ptks_must_be_installed
       [reuse, use_induction, heuristic=S]:
-    "All ptkID suppID suppThreadID ptkInstallerID PTK nonceNumber #i. 
+    "All ptkID suppID suppThreadID ptkInstallerID PTK nonceNumber frameType #i. 
      SuppEncryptedWithPTK(ptkID, suppThreadID, suppID,
-                          PTK, <nonceNumber, ptkInstallerID>) @ i 
-     ==> (Ex PMK ANonce SNonce x #j. j < i & 
-          SupplicantInstalledPTK(suppThreadID, suppID, PMK, ptkID, PTK, 
-                                 <kPTKNonceStartNumber, suppID>, GTK(x), 
-                                 ANonce, SNonce)[+] @ j &
+                          PTK, <nonceNumber, ptkInstallerID, frameType>) @ i 
+     ==> (Ex #j. j < i & 
+          SuppInstalledSenderPTK(ptkID, suppThreadID, suppID, PTK, 
+                                 <kPTKNonceStartNumber, suppID, frameType>)[+] @ j &
           suppID = ptkInstallerID)"
 
 lemma authenticator_use_gtk_must_be_preceded_by_install_gtk
@@ -1328,12 +1356,14 @@ lemma authenticator_installed_must_be_preceded_by_associate
 
 lemma only_one_supplicant_can_be_installed_for_a_pmk [reuse, heuristic=C]:
      "All suppThreadID1 suppThreadID2 suppID1 suppID2 GTK1 GTK2 PMK 
-      ptkID1 ptkID2 PTK1 PTK2 ptkNonce1 ptkNonce2 ANonce1 ANonce2 
-      SNonce1 SNonce2 #i #j.
-      SupplicantInstalledPTK(suppThreadID1, suppID1, PMK, ptkID1, PTK1, 
-                             ptkNonce1, GTK1, ANonce1, SNonce1) @ i & 
-      SupplicantInstalledPTK(suppThreadID2, suppID2, PMK, ptkID2, PTK2, 
-                             ptkNonce2, GTK2, ANonce2, SNonce2) @ j
+      PTK1 PTK2 ptkDfNonce1 ptkDfNonce2 
+      ptkMfNonce1 ptkMfNonce2 ANonce1 ANonce2 SNonce1 SNonce2 #i #j.
+      SupplicantInstalledPTK(suppThreadID1, suppID1, PMK, PTK1, 
+                             ptkDfNonce1, ptkMfNonce1,
+                             GTK1, ANonce1, SNonce1) @ i & 
+      SupplicantInstalledPTK(suppThreadID2, suppID2, PMK, PTK2, 
+                             ptkDfNonce2, ptkMfNonce2, 
+                             GTK2, ANonce2, SNonce2) @ j
       ==> suppThreadID1 = suppThreadID2" 
 
 lemma supplicant_wnm_sleep_thread_has_to_start
@@ -1364,12 +1394,15 @@ lemma pmks_are_ku_secret_unless_revealed [reuse]:
 ifelse(INCLUDE_PATCHES, true, <!
 
 lemma supplicant_ptk_installation_is_unique_for_ptk [reuse, heuristic=S]:
-    "All suppThreadID1 suppThreadID2 suppID1 suppID2 PMK PTK ptkID1 ptkID2 
-     GTK1 GTK2 ptkNonce1 ptkNonce2 ANonce1 ANonce2 SNonce1 SNonce2 #i #j.
-     SupplicantInstalledPTK(suppThreadID1, suppID1, PMK, PTK, ptkID1, 
-                            ptkNonce1, GTK1, ANonce1, SNonce1) @ i & 
-     SupplicantInstalledPTK(suppThreadID2, suppID2, PMK, PTK, ptkID2, 
-                            ptkNonce2, GTK2, ANonce2, SNonce2) @ j
+    "All suppThreadID1 suppThreadID2 suppID1 suppID2 PMK PTK 
+     GTK1 GTK2 ptkDfNonce1 ptkMfNonce1 ptkDfNonce2 ptkMfNonce2 
+     ANonce1 ANonce2 SNonce1 SNonce2 #i #j.
+     SupplicantInstalledPTK(suppThreadID1, suppID1, PMK, PTK, 
+                            ptkDfNonce1, ptkMfNonce1, 
+                            GTK1, ANonce1, SNonce1) @ i & 
+     SupplicantInstalledPTK(suppThreadID2, suppID2, PMK, PTK, 
+                            ptkDfNonce2, ptkMfNonce2,
+                            GTK2, ANonce2, SNonce2) @ j
      ==> #i = #j" 
 
 lemma authenticator_ptk_installation_is_unique_for_ptk [reuse, heuristic=S]:
@@ -1383,50 +1416,43 @@ lemma authenticator_ptk_installation_is_unique_for_ptk [reuse, heuristic=S]:
      ==> #i = #j" 
 
 lemma ptk_nonce_must_use_sender_id [reuse, heuristic=C]:
-    "All keyID senderThreadID senderID PTK ctr installerID #i.
+    "All keyID senderThreadID senderID PTK ctr installerID frameType #i.
      EncryptedWithPTK(keyID, senderThreadID, senderID, 
-                      PTK, <ctr, installerID>) @ i
+                      PTK, <ctr, installerID, frameType>) @ i
      ==> senderID = installerID"
 
 lemma different_ptk_id_must_have_different_ptk_nonce_pairs
       [reuse, heuristic=S]:
     "All keyID1 keyID2 senderID1 senderID2 senderThreadID1 senderThreadID2 
-     PTK installerID ctr #i #j. 
+     PTK nonce #i #j. 
      EncryptedWithPTK(keyID1, senderThreadID1, senderID1,
-                      PTK, <ctr, installerID>)[+] @ i &
+                      PTK, nonce)[+] @ i &
      EncryptedWithPTK(keyID2, senderThreadID2, senderID2,
-                      PTK, <ctr, installerID>)[+] @ j 
+                      PTK, nonce)[+] @ j 
      ==> keyID1 = keyID2"
 
 lemma authenticator_and_supplicant_have_different_ptk_nonce_pairs
       [reuse, heuristic=S]:
-    "All keyID1 keyID2 authID suppID authThreadID suppThreadID 
-     PTK n keyInstallerID #i #j. 
-     SuppEncryptedWithPTK(keyID1, suppThreadID, suppID,
-                          PTK, <n, keyInstallerID>)[+] @ i &
-     AuthEncryptedWithPTK(keyID2, authThreadID, authID,
-                          PTK, <n, keyInstallerID>)[+] @ j
+    "All keyID1 keyID2 authID suppID authThreadID suppThreadID PTK nonce #i #j. 
+     SuppEncryptedWithPTK(keyID1, suppThreadID, suppID, PTK, nonce)[+] @ i &
+     AuthEncryptedWithPTK(keyID2, authThreadID, authID, PTK, nonce)[+] @ j
      ==> F"
 
 lemma authenticator_ptk_nonce_pair_is_unique 
       [reuse, use_induction, heuristic=S]:
     "All keyID1 keyID2 authID1 authID2 authThreadID1 authThreadID2 
-     PTK n keyInstallerID #i #j. i < j &
-     AuthEncryptedWithPTK(keyID1, authThreadID1, authID1,
-                          PTK, <n, keyInstallerID>)[+] @ i &
-     AuthEncryptedWithPTK(keyID2, authThreadID2, authID2,
-                          PTK, <n, keyInstallerID>)[+] @ j
+     PTK nonce #i #j. i < j &
+     AuthEncryptedWithPTK(keyID1, authThreadID1, authID1, PTK, nonce)[+] @ i &
+     AuthEncryptedWithPTK(keyID2, authThreadID2, authID2, PTK, nonce)[+] @ j
      ==> F"
 
 lemma supplicant_ptk_nonce_pair_is_unique 
       [reuse, use_induction, heuristic=S,
        hide_lemma=supplicant_used_ptks_must_be_installed]:
     "All keyID1 keyID2 suppID1 suppID2 suppThreadID1 suppThreadID2 
-     PTK n keyInstallerID #i #j. i < j &
-     SuppEncryptedWithPTK(keyID1, suppThreadID1, suppID1,
-                          PTK, <n, keyInstallerID>)[+] @ i &
-     SuppEncryptedWithPTK(keyID2, suppThreadID2, suppID2,
-                          PTK, <n, keyInstallerID>)[+] @ j
+     PTK nonce #i #j. i < j &
+     SuppEncryptedWithPTK(keyID1, suppThreadID1, suppID1, PTK, nonce)[+] @ i &
+     SuppEncryptedWithPTK(keyID2, suppThreadID2, suppID2, PTK, nonce)[+] @ j
      ==> F"
 
 lemma ptk_nonce_pair_is_unique [reuse, heuristic=S]:
@@ -1441,16 +1467,18 @@ lemma ptk_nonce_pair_is_unique [reuse, heuristic=S]:
 // BEGIN Main Statements
 
 lemma supplicant_ptk_is_secret [heuristic=S, reuse]:
-    "All suppThreadID suppID PMK ptkID PTK ptkNonce GTK ANonce SNonce #i. 
-     SupplicantInstalledPTK(suppThreadID, suppID, PMK, ptkID, PTK, ptkNonce, 
-                            GTK, ANonce, SNonce) @ i &
+    "All suppThreadID suppID PMK PTK ptkDfNonce ptkMfNonce 
+     GTK ANonce SNonce #i. 
+     SupplicantInstalledPTK(suppThreadID, suppID, PMK, PTK, 
+                            ptkDfNonce, ptkMfNonce, GTK, ANonce, SNonce) @ i &
      not (Ex #j. RevealPMK(PMK) @ j)
      ==> not(Ex #k. K(PTK)[+] @ k)"
 
 lemma supplicant_ptk_is_ku_secret [heuristic=S, reuse]:
-    "All suppThreadID suppID PMK ANonce SNonce ptkID ptkNonce PTK GTK #i. 
-     SupplicantInstalledPTK(suppThreadID, suppID, PMK, ptkID, PTK, ptkNonce,
-                            GTK, ANonce, SNonce) @ i &
+    "All suppThreadID suppID PMK ANonce SNonce 
+     ptkDfNonce ptkMfNonce PTK GTK #i. 
+     SupplicantInstalledPTK(suppThreadID, suppID, PMK, PTK, 
+                            ptkDfNonce, ptkMfNonce, GTK, ANonce, SNonce) @ i &
      not (Ex #j. RevealPMK(PMK) @ j)
      ==> not(Ex #k. KU(PTK)[+] @ k)"
 
@@ -1737,25 +1765,26 @@ lemma supplicant_can_send_m4 [heuristic=S, hide_unwanted_lemmas]: exists-trace
                        ANonce, SNonce) @ i"
 
 lemma can_install_key [heuristic=S, hide_unwanted_lemmas]: exists-trace
-    "Ex suppThreadID suppID authThreadID authID PMK ptkID PTK ptkNonce GTK 
-     ANonce SNonce ctr1 #i #j.
+    "Ex suppThreadID suppID authThreadID authID PMK PTK 
+     ptkDfNonce ptkMfNonce GTK ANonce SNonce ctr1 #i #j.
      AuthenticatorInstalled(authThreadID, authID, PMK, suppThreadID, PTK,
                             ANonce, SNonce, ctr1) @ i & 
-     SupplicantInstalledPTK(suppThreadID, suppID, PMK, ptkID, PTK, ptkNonce,
-                            GTK, ANonce, SNonce) @ j"
+     SupplicantInstalledPTK(suppThreadID, suppID, PMK, PTK, 
+                            ptkDfNonce, ptkMfNonce, GTK, ANonce, SNonce) @ j"
 
 lemma can_perform_handshakes_in_parallel [heuristic=S, 
                                           hide_unwanted_lemmas]: exists-trace
     "Ex authID authThreadID1 authThreadID2 suppID1 suppID2
-     suppThreadID1 suppThreadID2 PMK1 PMK2 ptkID1 ptkID2 ptkNonce1 ptkNonce2
+     suppThreadID1 suppThreadID2 PMK1 PMK2 
+     ptkDfNonce1 ptkMfNonce1 ptkDfNonce2 ptkMfNonce2
      PTK1 PTK2 GTK ANonce1 ANonce2 SNonce1 SNonce2 #i #j #k #l.
      Associate(authID, authThreadID1, suppID1, suppThreadID1, PMK1) @ i &
      Associate(authID, authThreadID2, suppID2, suppThreadID2, PMK2) @ j &
      i < j & k < l &
-     SupplicantInstalledPTK(suppThreadID2, suppID2, PMK2, ptkID2, PTK2,
-                            ptkNonce2, GTK, ANonce2, SNonce2) @ k &
-     SupplicantInstalledPTK(suppThreadID1, suppID1, PMK1, ptkID1, PTK1,
-                            ptkNonce1, GTK, ANonce1, SNonce1) @ l"
+     SupplicantInstalledPTK(suppThreadID2, suppID2, PMK2, PTK2,
+                            ptkDfNonce2, ptkMfNonce2, GTK, ANonce2, SNonce2) @ k &
+     SupplicantInstalledPTK(suppThreadID1, suppID1, PMK1, PTK1,
+                            ptkDfNonce1, ptkMfNonce1, GTK, ANonce1, SNonce1) @ l"
 
 lemma can_rekey [heuristic=S, hide_unwanted_lemmas]: exists-trace
     "Ex authThreadID authID PMK suppThreadID1 suppThreadID2 PTK1 PTK2 
@@ -1783,11 +1812,11 @@ lemma authenticator_can_install_new_gtk [heuristic=S,
      i < k & j < k"
 
 lemma krack_attack_ptk [heuristic=S, hide_unwanted_lemmas]: exists-trace
-    "Ex suppThreadID suppID PMK ptkID PTK ptkNonce GTK ANonce SNonce #i #j.
-     SupplicantInstalledPTK(suppThreadID, suppID, PMK, ptkID, PTK, ptkNonce,
-                            GTK, ANonce, SNonce) @ i &
+    "Ex suppThreadID suppID PMK PTK ptkDfNonce ptkMfNonce 
+     GTK ANonce SNonce #i #j.
+     SupplicantInstalledPTK(suppThreadID, suppID, PMK, PTK, 
+                            ptkDfNonce, ptkMfNonce, GTK, ANonce, SNonce) @ i &
      K(PTK) @ j"
-     /*NonceReuse(PTK, kPTKNonceStartNumber) @ j & i < j"*/
 
 // END Plausibility Checks
 

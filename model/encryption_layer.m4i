@@ -1,6 +1,3 @@
-dnl This file specifies the encryption layer mechanism used for the
-dnl formal model of WPA2.
-dnl
 dnl $1 = Message, $2 = senderThreadID, $3 = messageID $4 = RuleName
 define(OutEnc, <!Out_$4($1, $2, $3)!>)
 dnl $1 = RuleName, $2 = Auth or Supp
@@ -8,19 +5,18 @@ define(EncryptionRule,
 <!dnl
 rule OutRule_Enc_$1 [color=ffd447]:
     let PTK = KDF(<PMK, ANonce, SNonce>)
- 		nonce = <N(n), ~senderID>
-		newNonce = <N(n+'1'), ~senderID>
+ 		nonce = <N(n), ~senderID, $3>
+		newNonce = <N(n+'1'), ~senderID, $3>
 	in
     [ Out_$1(message, ~senderThreadID, ~messageID)
     , $2SenderPTK(~ptkID, ~senderThreadID, ~senderID, PTK, nonce) ]
     --[ EncryptedWithPTK(~ptkID, ~senderThreadID, ~senderID, PTK, newNonce)
       , $2EncryptedWithPTK(~ptkID, ~senderThreadID, ~senderID, PTK, newNonce)
-      , EncryptedWithOrInstalledPTK(~ptkID, ~senderThreadID, ~senderID,
-                                    PTK, newNonce)
       , SendMessage(~senderThreadID, ~messageID) ]->
     [ Out(snenc(message, PTK, newNonce))
     , $2SenderPTK(~ptkID, ~senderThreadID, ~senderID, PTK, newNonce) ]
 !>)
+
 define(PlainRule,
 <!dnl
 rule OutRule_$1 [color=ffffff]:
@@ -28,9 +24,16 @@ rule OutRule_$1 [color=ffffff]:
 	--[ SendMessage(~senderThreadID, ~messageID) ]->
 	[ Out(message) ]dnl
 !>)
-define(OutEncRule,
+
+define(OutEncRuleDataFrame,
 <!dnl
-EncryptionRule($1, $2)
+EncryptionRule($1, $2, kDataFrame)
+ifelse($3, only_encrypted, , PlainRule($1))
+!>)
+
+define(OutEncRuleManagementFrame,
+<!dnl
+EncryptionRule($1, $2, kManagementFrame)
 ifelse($3, only_encrypted, , PlainRule($1))
 !>)
 
@@ -38,18 +41,16 @@ define(SendPTKEncryptedPayloadRule,
 <!dnl
 rule sendPTKEncryptedPayload_$1 [color=ffd447]:
     let PTK = KDF(<PMK, ANonce, SNonce>) 
-		nonce = <N(n), ~senderID>
-		newNonce = <N(n+'1'), ~senderID>
+		dfNonce = <N(n), ~senderID, kDataFrame>
+		newDfNonce = <N(n+'1'), ~senderID, kDataFrame>
 	in
-    [ $1SenderPTK(~ptkID, ~senderThreadID, ~senderID, PTK, nonce) ]
-    --[ EncryptedWithPTK(~ptkID, ~senderThreadID, ~senderID, PTK, newNonce)
-      , $1EncryptedWithPTK(~ptkID, ~senderThreadID, ~senderID, PTK, newNonce)
-      , EncryptedWithOrInstalledPTK(~ptkID, ~senderThreadID, ~senderID, 
-                                    PTK, newNonce)
+    [ $1SenderPTK(~ptkID, ~senderThreadID, ~senderID, PTK, dfNonce) ]
+    --[ EncryptedWithPTK(~ptkID, ~senderThreadID, ~senderID, PTK, newDfNonce)
+      , $1EncryptedWithPTK(~ptkID, ~senderThreadID, ~senderID, PTK, newDfNonce)
       , SendPTKEncryptedPayload(~ptkID, ~senderThreadID, ~senderID, 
-                                PTK, newNonce) ]->
-    [ Out(snenc(<'data', $message>, PTK, newNonce))
-    , $1SenderPTK(~ptkID, ~senderThreadID, ~senderID, PTK, newNonce) ]
+                                PTK, newDfNonce) ]->
+    [ Out(snenc(<'data', $message>, PTK, newDfNonce))
+    , $1SenderPTK(~ptkID, ~senderThreadID, ~senderID, PTK, newDfNonce) ]
 !>)
 
 SendPTKEncryptedPayloadRule(Auth)
@@ -73,7 +74,7 @@ define(ReceiveEncryptedRule,
 rule Receive_Encrypted_Message_$1 [color=ffd447]:
     let 
         PTK = KDF(<PMK, ANonce, SNonce>) 
-        nonce = <N(n), senderID>
+        nonce = <N(n), senderID, frameType>
     in
     [ In(snenc(message, PTK, nonce))
     , !$1ReceiverPTK(~ptkID, ~receiverThreadID, ~receiverID, PTK,
@@ -84,6 +85,7 @@ rule Receive_Encrypted_Message_$1 [color=ffd447]:
       , Read(~pointerPTK) ]->
     [ InEnc(message, ~receiverThreadID, PTK, $1) ]
 !>)
+
 
 ReceivePlainRule(Auth)
 
