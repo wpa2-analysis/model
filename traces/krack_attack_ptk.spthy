@@ -15,8 +15,7 @@ equations:
 
 /*
 looping facts with injective instances:
-  AuthInstalledGTK/2, AuthSenderPTK/5, AuthState/3, ReceiverGTK/6,
-  SuppSenderPTK/5, SuppState/3
+  AuthInstalledGTK/2, AuthState/3, ReceiverGTK/6, SuppState/3
 */
 
 restriction Neq:
@@ -93,10 +92,12 @@ restriction ReplayCounterGroupKeyRekey:
   // safety formula
 
 restriction ReplayCounterPairwiseMessages:
-  "∀ ptkID receiverThreadID senderID PTK n1 n2 #i #j.
-    (((SeesNonceForPTK( ptkID, receiverThreadID, PTK, <N(n1), senderID>
+  "∀ ptkID receiverThreadID senderID PTK n1 n2 frameType #i #j.
+    (((SeesNonceForPTK( ptkID, receiverThreadID, PTK,
+                        <N(n1), senderID, frameType>
        ) @ #i) ∧
-      (SeesNonceForPTK( ptkID, receiverThreadID, PTK, <N(n2), senderID>
+      (SeesNonceForPTK( ptkID, receiverThreadID, PTK,
+                        <N(n2), senderID, frameType>
        ) @ #j)) ∧
      (#i < #j)) ⇒
     (∃ z. (n1+z) = n2)"
@@ -172,9 +173,9 @@ rule (modulo E) Auth_Create[color=#ddb4ff]:
 rule (modulo E) Auth_Associate_With_Supp:
    [
    Fr( ~PMK ), Fr( ~authThreadID ), Fr( ~suppThreadID ),
-   Fr( ~authPTKID ), Fr( ~suppPTKID ), Fr( ~pointerAuthPTK ),
-   Fr( ~pointerSuppPTK ), Fr( ~nullGTKID ), !Authenticator( ~authID ),
-   !Supplicant( ~suppID )
+   Fr( ~authReceiverPtkID ), Fr( ~suppReceiverPtkID ),
+   Fr( ~pointerAuthPTK ), Fr( ~pointerSuppPTK ), Fr( ~nullGTKID ),
+   !Authenticator( ~authID ), !Supplicant( ~suppID )
    ]
   --[
   Init( ~PMK ),
@@ -193,10 +194,10 @@ rule (modulo E) Auth_Associate_With_Supp:
    !PairwiseMasterKey( ~PMK, ~authID, ~authThreadID, ~suppID,
                        ~suppThreadID
    ),
-   !AuthReceiverPTK( ~authPTKID, ~authThreadID, ~authID,
+   !AuthReceiverPTK( ~authReceiverPtkID, ~authThreadID, ~authID,
                      KDF(<'NULL', 'NULL', 'NULL'>), ~pointerAuthPTK
    ),
-   !SuppReceiverPTK( ~suppPTKID, ~suppThreadID, ~suppID,
+   !SuppReceiverPTK( ~suppReceiverPtkID, ~suppThreadID, ~suppID,
                      KDF(<'NULL', 'NULL', 'NULL'>), ~pointerSuppPTK
    ),
    ReceiverGTK( ~suppThreadID, ~nullGTKID, ~PMK, GTK('NULL'),
@@ -210,29 +211,26 @@ rule (modulo E) Auth_Associate_With_Supp:
 rule (modulo E) sendPTKEncryptedPayload_Auth[color=#ffd447]:
    [
    AuthSenderPTK( ~ptkID, ~senderThreadID, ~senderID,
-                  KDF(<PMK, ANonce, SNonce>), <N(n), ~senderID>
+                  KDF(<PMK, ANonce, SNonce>), <N(n), ~senderID, 'DF'>
    )
    ]
   --[
   EncryptedWithPTK( ~ptkID, ~senderThreadID, ~senderID,
-                    KDF(<PMK, ANonce, SNonce>), <N(('1'+n)), ~senderID>
+                    KDF(<PMK, ANonce, SNonce>), <N(('1'+n)), ~senderID, 'DF'>
   ),
   AuthEncryptedWithPTK( ~ptkID, ~senderThreadID, ~senderID,
-                        KDF(<PMK, ANonce, SNonce>), <N(('1'+n)), ~senderID>
-  ),
-  EncryptedWithOrInstalledPTK( ~ptkID, ~senderThreadID, ~senderID,
-                               KDF(<PMK, ANonce, SNonce>), <N(('1'+n)), ~senderID>
+                        KDF(<PMK, ANonce, SNonce>), <N(('1'+n)), ~senderID, 'DF'>
   ),
   SendPTKEncryptedPayload( ~ptkID, ~senderThreadID, ~senderID,
-                           KDF(<PMK, ANonce, SNonce>), <N(('1'+n)), ~senderID>
+                           KDF(<PMK, ANonce, SNonce>), <N(('1'+n)), ~senderID, 'DF'>
   )
   ]->
    [
    Out( snenc(<'data', $message>, KDF(<PMK, ANonce, SNonce>),
-              <N(('1'+n)), ~senderID>)
+              <N(('1'+n)), ~senderID, 'DF'>)
    ),
    AuthSenderPTK( ~ptkID, ~senderThreadID, ~senderID,
-                  KDF(<PMK, ANonce, SNonce>), <N(('1'+n)), ~senderID>
+                  KDF(<PMK, ANonce, SNonce>), <N(('1'+n)), ~senderID, 'DF'>
    )
    ]
 
@@ -242,29 +240,26 @@ rule (modulo E) sendPTKEncryptedPayload_Auth[color=#ffd447]:
 rule (modulo E) sendPTKEncryptedPayload_Supp[color=#ffd447]:
    [
    SuppSenderPTK( ~ptkID, ~senderThreadID, ~senderID,
-                  KDF(<PMK, ANonce, SNonce>), <N(n), ~senderID>
+                  KDF(<PMK, ANonce, SNonce>), <N(n), ~senderID, 'DF'>
    )
    ]
   --[
   EncryptedWithPTK( ~ptkID, ~senderThreadID, ~senderID,
-                    KDF(<PMK, ANonce, SNonce>), <N(('1'+n)), ~senderID>
+                    KDF(<PMK, ANonce, SNonce>), <N(('1'+n)), ~senderID, 'DF'>
   ),
   SuppEncryptedWithPTK( ~ptkID, ~senderThreadID, ~senderID,
-                        KDF(<PMK, ANonce, SNonce>), <N(('1'+n)), ~senderID>
-  ),
-  EncryptedWithOrInstalledPTK( ~ptkID, ~senderThreadID, ~senderID,
-                               KDF(<PMK, ANonce, SNonce>), <N(('1'+n)), ~senderID>
+                        KDF(<PMK, ANonce, SNonce>), <N(('1'+n)), ~senderID, 'DF'>
   ),
   SendPTKEncryptedPayload( ~ptkID, ~senderThreadID, ~senderID,
-                           KDF(<PMK, ANonce, SNonce>), <N(('1'+n)), ~senderID>
+                           KDF(<PMK, ANonce, SNonce>), <N(('1'+n)), ~senderID, 'DF'>
   )
   ]->
    [
    Out( snenc(<'data', $message>, KDF(<PMK, ANonce, SNonce>),
-              <N(('1'+n)), ~senderID>)
+              <N(('1'+n)), ~senderID, 'DF'>)
    ),
    SuppSenderPTK( ~ptkID, ~senderThreadID, ~senderID,
-                  KDF(<PMK, ANonce, SNonce>), <N(('1'+n)), ~senderID>
+                  KDF(<PMK, ANonce, SNonce>), <N(('1'+n)), ~senderID, 'DF'>
    )
    ]
 
@@ -303,7 +298,9 @@ rule (modulo E) Receive_Clear_Message_Supp[color=#ffffff]:
 
 rule (modulo E) Receive_Encrypted_Message_Auth[color=#ffd447]:
    [
-   In( snenc(message, KDF(<PMK, ANonce, SNonce>), <N(n), senderID>) ),
+   In( snenc(message, KDF(<PMK, ANonce, SNonce>),
+             <N(n), senderID, frameType>)
+   ),
    !AuthReceiverPTK( ~ptkID, ~receiverThreadID, ~receiverID,
                      KDF(<PMK, ANonce, SNonce>), ~pointerPTK
    )[no_precomp]
@@ -311,7 +308,7 @@ rule (modulo E) Receive_Encrypted_Message_Auth[color=#ffd447]:
   --[
   Neq( KDF(<PMK, ANonce, SNonce>), KDF(<'NULL', 'NULL', 'NULL'>) ),
   SeesNonceForPTK( ~ptkID, ~receiverThreadID,
-                   KDF(<PMK, ANonce, SNonce>), <N(n), senderID>
+                   KDF(<PMK, ANonce, SNonce>), <N(n), senderID, frameType>
   ),
   Read( ~pointerPTK )
   ]->
@@ -322,7 +319,9 @@ rule (modulo E) Receive_Encrypted_Message_Auth[color=#ffd447]:
 
 rule (modulo E) Receive_Encrypted_Message_Supp[color=#ffd447]:
    [
-   In( snenc(message, KDF(<PMK, ANonce, SNonce>), <N(n), senderID>) ),
+   In( snenc(message, KDF(<PMK, ANonce, SNonce>),
+             <N(n), senderID, frameType>)
+   ),
    !SuppReceiverPTK( ~ptkID, ~receiverThreadID, ~receiverID,
                      KDF(<PMK, ANonce, SNonce>), ~pointerPTK
    )[no_precomp]
@@ -330,7 +329,7 @@ rule (modulo E) Receive_Encrypted_Message_Supp[color=#ffd447]:
   --[
   Neq( KDF(<PMK, ANonce, SNonce>), KDF(<'NULL', 'NULL', 'NULL'>) ),
   SeesNonceForPTK( ~ptkID, ~receiverThreadID,
-                   KDF(<PMK, ANonce, SNonce>), <N(n), senderID>
+                   KDF(<PMK, ANonce, SNonce>), <N(n), senderID, frameType>
   ),
   Read( ~pointerPTK )
   ]->
@@ -496,27 +495,24 @@ rule (modulo E) OutRule_Enc_Auth_Snd_M1[color=#ffd447]:
    [
    Out_Auth_Snd_M1( message, ~senderThreadID, ~messageID ),
    AuthSenderPTK( ~ptkID, ~senderThreadID, ~senderID,
-                  KDF(<PMK, ANonce, SNonce>), <N(n), ~senderID>
+                  KDF(<PMK, ANonce, SNonce>), <N(n), ~senderID, 'DF'>
    )
    ]
   --[
   EncryptedWithPTK( ~ptkID, ~senderThreadID, ~senderID,
-                    KDF(<PMK, ANonce, SNonce>), <N(('1'+n)), ~senderID>
+                    KDF(<PMK, ANonce, SNonce>), <N(('1'+n)), ~senderID, 'DF'>
   ),
   AuthEncryptedWithPTK( ~ptkID, ~senderThreadID, ~senderID,
-                        KDF(<PMK, ANonce, SNonce>), <N(('1'+n)), ~senderID>
-  ),
-  EncryptedWithOrInstalledPTK( ~ptkID, ~senderThreadID, ~senderID,
-                               KDF(<PMK, ANonce, SNonce>), <N(('1'+n)), ~senderID>
+                        KDF(<PMK, ANonce, SNonce>), <N(('1'+n)), ~senderID, 'DF'>
   ),
   SendMessage( ~senderThreadID, ~messageID )
   ]->
    [
    Out( snenc(message, KDF(<PMK, ANonce, SNonce>),
-              <N(('1'+n)), ~senderID>)
+              <N(('1'+n)), ~senderID, 'DF'>)
    ),
    AuthSenderPTK( ~ptkID, ~senderThreadID, ~senderID,
-                  KDF(<PMK, ANonce, SNonce>), <N(('1'+n)), ~senderID>
+                  KDF(<PMK, ANonce, SNonce>), <N(('1'+n)), ~senderID, 'DF'>
    )
    ]
 
@@ -565,27 +561,24 @@ rule (modulo E) OutRule_Enc_Auth_Snd_M1_repeat[color=#ffd447]:
    [
    Out_Auth_Snd_M1_repeat( message, ~senderThreadID, ~messageID ),
    AuthSenderPTK( ~ptkID, ~senderThreadID, ~senderID,
-                  KDF(<PMK, ANonce, SNonce>), <N(n), ~senderID>
+                  KDF(<PMK, ANonce, SNonce>), <N(n), ~senderID, 'DF'>
    )
    ]
   --[
   EncryptedWithPTK( ~ptkID, ~senderThreadID, ~senderID,
-                    KDF(<PMK, ANonce, SNonce>), <N(('1'+n)), ~senderID>
+                    KDF(<PMK, ANonce, SNonce>), <N(('1'+n)), ~senderID, 'DF'>
   ),
   AuthEncryptedWithPTK( ~ptkID, ~senderThreadID, ~senderID,
-                        KDF(<PMK, ANonce, SNonce>), <N(('1'+n)), ~senderID>
-  ),
-  EncryptedWithOrInstalledPTK( ~ptkID, ~senderThreadID, ~senderID,
-                               KDF(<PMK, ANonce, SNonce>), <N(('1'+n)), ~senderID>
+                        KDF(<PMK, ANonce, SNonce>), <N(('1'+n)), ~senderID, 'DF'>
   ),
   SendMessage( ~senderThreadID, ~messageID )
   ]->
    [
    Out( snenc(message, KDF(<PMK, ANonce, SNonce>),
-              <N(('1'+n)), ~senderID>)
+              <N(('1'+n)), ~senderID, 'DF'>)
    ),
    AuthSenderPTK( ~ptkID, ~senderThreadID, ~senderID,
-                  KDF(<PMK, ANonce, SNonce>), <N(('1'+n)), ~senderID>
+                  KDF(<PMK, ANonce, SNonce>), <N(('1'+n)), ~senderID, 'DF'>
    )
    ]
 
@@ -713,27 +706,24 @@ rule (modulo E) OutRule_Enc_Auth_Check_MIC_M2_Snd_M3[color=#ffd447]:
    Out_Auth_Check_MIC_M2_Snd_M3( message, ~senderThreadID, ~messageID
    ),
    AuthSenderPTK( ~ptkID, ~senderThreadID, ~senderID,
-                  KDF(<PMK, ANonce, SNonce>), <N(n), ~senderID>
+                  KDF(<PMK, ANonce, SNonce>), <N(n), ~senderID, 'DF'>
    )
    ]
   --[
   EncryptedWithPTK( ~ptkID, ~senderThreadID, ~senderID,
-                    KDF(<PMK, ANonce, SNonce>), <N(('1'+n)), ~senderID>
+                    KDF(<PMK, ANonce, SNonce>), <N(('1'+n)), ~senderID, 'DF'>
   ),
   AuthEncryptedWithPTK( ~ptkID, ~senderThreadID, ~senderID,
-                        KDF(<PMK, ANonce, SNonce>), <N(('1'+n)), ~senderID>
-  ),
-  EncryptedWithOrInstalledPTK( ~ptkID, ~senderThreadID, ~senderID,
-                               KDF(<PMK, ANonce, SNonce>), <N(('1'+n)), ~senderID>
+                        KDF(<PMK, ANonce, SNonce>), <N(('1'+n)), ~senderID, 'DF'>
   ),
   SendMessage( ~senderThreadID, ~messageID )
   ]->
    [
    Out( snenc(message, KDF(<PMK, ANonce, SNonce>),
-              <N(('1'+n)), ~senderID>)
+              <N(('1'+n)), ~senderID, 'DF'>)
    ),
    AuthSenderPTK( ~ptkID, ~senderThreadID, ~senderID,
-                  KDF(<PMK, ANonce, SNonce>), <N(('1'+n)), ~senderID>
+                  KDF(<PMK, ANonce, SNonce>), <N(('1'+n)), ~senderID, 'DF'>
    )
    ]
 
@@ -805,27 +795,24 @@ rule (modulo E) OutRule_Enc_Auth_Snd_M3_repeat[color=#ffd447]:
    [
    Out_Auth_Snd_M3_repeat( message, ~senderThreadID, ~messageID ),
    AuthSenderPTK( ~ptkID, ~senderThreadID, ~senderID,
-                  KDF(<PMK, ANonce, SNonce>), <N(n), ~senderID>
+                  KDF(<PMK, ANonce, SNonce>), <N(n), ~senderID, 'DF'>
    )
    ]
   --[
   EncryptedWithPTK( ~ptkID, ~senderThreadID, ~senderID,
-                    KDF(<PMK, ANonce, SNonce>), <N(('1'+n)), ~senderID>
+                    KDF(<PMK, ANonce, SNonce>), <N(('1'+n)), ~senderID, 'DF'>
   ),
   AuthEncryptedWithPTK( ~ptkID, ~senderThreadID, ~senderID,
-                        KDF(<PMK, ANonce, SNonce>), <N(('1'+n)), ~senderID>
-  ),
-  EncryptedWithOrInstalledPTK( ~ptkID, ~senderThreadID, ~senderID,
-                               KDF(<PMK, ANonce, SNonce>), <N(('1'+n)), ~senderID>
+                        KDF(<PMK, ANonce, SNonce>), <N(('1'+n)), ~senderID, 'DF'>
   ),
   SendMessage( ~senderThreadID, ~messageID )
   ]->
    [
    Out( snenc(message, KDF(<PMK, ANonce, SNonce>),
-              <N(('1'+n)), ~senderID>)
+              <N(('1'+n)), ~senderID, 'DF'>)
    ),
    AuthSenderPTK( ~ptkID, ~senderThreadID, ~senderID,
-                  KDF(<PMK, ANonce, SNonce>), <N(('1'+n)), ~senderID>
+                  KDF(<PMK, ANonce, SNonce>), <N(('1'+n)), ~senderID, 'DF'>
    )
    ]
 
@@ -845,7 +832,7 @@ rule (modulo E) Auth_Rcv_M4_Install_Key[color=#ddb4ff]:
               <~authID, ~PMK, ~suppThreadID, KDF(<PMK1, ANonce1, SNonce1>), 
                ~ANonce, SNonce, S(ctr_minus_1)>
    ),
-   !AuthReceiverPTK( ~oldPTKID, ~authThreadID, ~authID,
+   !AuthReceiverPTK( ~oldReceiverPtkID, ~authThreadID, ~authID,
                      KDF(<PMK1, ANonce1, SNonce1>), ~oldPointerPTK
    )[no_precomp],
    In_Auth( <S(ctr_m4_minus_1), mic_m4>, ~authThreadID,
@@ -854,7 +841,9 @@ rule (modulo E) Auth_Rcv_M4_Install_Key[color=#ddb4ff]:
    !UsedCounterInPTKHandshake( ~authThreadID, ~ANonce,
                                S(ctr_m4_minus_1)
    )[-],
-   Fr( ~ptkID ), Fr( ~gtkID ), Fr( ~counter ), Fr( ~newPointerPTK )
+   Fr( ~dataFramePtkID ), Fr( ~managementFramePtkID ),
+   Fr( ~newReceiverPtkID ), Fr( ~gtkID ), Fr( ~counter ),
+   Fr( ~newPointerPTK )
    ]
   --[
   AuthenticatorInstalled( ~authThreadID, ~authID, ~PMK,
@@ -864,14 +853,11 @@ rule (modulo E) Auth_Rcv_M4_Install_Key[color=#ddb4ff]:
   AuthenticatorCommit( ~authThreadID, ~suppThreadID, ~PMK, ~ANonce,
                        SNonce, KDF(<~PMK, ~ANonce, SNonce>)
   ),
-  InstalledPTK( ~ptkID, ~authThreadID, ~authID,
-                KDF(<~PMK, ~ANonce, SNonce>), <N('1'), ~authID>
+  AuthInstalledSenderPTK( ~dataFramePtkID, ~authThreadID, ~authID,
+                          KDF(<~PMK, ~ANonce, SNonce>), <N('1'), ~authID, 'DF'>
   ),
-  AuthInstalledPTK( ~ptkID, ~authThreadID, ~authID,
-                    KDF(<~PMK, ~ANonce, SNonce>), <N('1'), ~authID>
-  ),
-  EncryptedWithOrInstalledPTK( ~ptkID, ~authThreadID, ~authID,
-                               KDF(<~PMK, ~ANonce, SNonce>), <N('1'), ~authID>
+  AuthInstalledSenderPTK( ~managementFramePtkID, ~authThreadID,
+                          ~authID, KDF(<~PMK, ~ANonce, SNonce>), <N('1'), ~authID, 'MF'>
   ),
   Eq( mic_m4, MIC(KDF(<~PMK, ~ANonce, SNonce>), S(ctr_m4_minus_1)) ),
   Free( ~oldPointerPTK )
@@ -884,10 +870,13 @@ rule (modulo E) Auth_Rcv_M4_Install_Key[color=#ddb4ff]:
    AuthStartWNMSleepModeThread( ~authThreadID, ~authID, ~PMK,
                                 KDF(<PMK1, ANonce1, SNonce1>)
    ),
-   AuthSenderPTK( ~ptkID, ~authThreadID, ~authID,
-                  KDF(<~PMK, ~ANonce, SNonce>), <N('1'), ~authID>
+   AuthSenderPTK( ~dataFramePtkID, ~authThreadID, ~authID,
+                  KDF(<~PMK, ~ANonce, SNonce>), <N('1'), ~authID, 'DF'>
    ),
-   !AuthReceiverPTK( ~ptkID, ~authThreadID, ~authID,
+   AuthSenderPTK( ~managementFramePtkID, ~authThreadID, ~authID,
+                  KDF(<~PMK, ~ANonce, SNonce>), <N('1'), ~authID, 'MF'>
+   ),
+   !AuthReceiverPTK( ~newReceiverPtkID, ~authThreadID, ~authID,
                      KDF(<~PMK, ~ANonce, SNonce>), ~newPointerPTK
    )
    ]
@@ -954,27 +943,24 @@ rule (modulo E) OutRule_Enc_Supp_Rcv_M1_Snd_M2[color=#ffd447]:
    [
    Out_Supp_Rcv_M1_Snd_M2( message, ~senderThreadID, ~messageID ),
    SuppSenderPTK( ~ptkID, ~senderThreadID, ~senderID,
-                  KDF(<PMK, ANonce, SNonce>), <N(n), ~senderID>
+                  KDF(<PMK, ANonce, SNonce>), <N(n), ~senderID, 'DF'>
    )
    ]
   --[
   EncryptedWithPTK( ~ptkID, ~senderThreadID, ~senderID,
-                    KDF(<PMK, ANonce, SNonce>), <N(('1'+n)), ~senderID>
+                    KDF(<PMK, ANonce, SNonce>), <N(('1'+n)), ~senderID, 'DF'>
   ),
   SuppEncryptedWithPTK( ~ptkID, ~senderThreadID, ~senderID,
-                        KDF(<PMK, ANonce, SNonce>), <N(('1'+n)), ~senderID>
-  ),
-  EncryptedWithOrInstalledPTK( ~ptkID, ~senderThreadID, ~senderID,
-                               KDF(<PMK, ANonce, SNonce>), <N(('1'+n)), ~senderID>
+                        KDF(<PMK, ANonce, SNonce>), <N(('1'+n)), ~senderID, 'DF'>
   ),
   SendMessage( ~senderThreadID, ~messageID )
   ]->
    [
    Out( snenc(message, KDF(<PMK, ANonce, SNonce>),
-              <N(('1'+n)), ~senderID>)
+              <N(('1'+n)), ~senderID, 'DF'>)
    ),
    SuppSenderPTK( ~ptkID, ~senderThreadID, ~senderID,
-                  KDF(<PMK, ANonce, SNonce>), <N(('1'+n)), ~senderID>
+                  KDF(<PMK, ANonce, SNonce>), <N(('1'+n)), ~senderID, 'DF'>
    )
    ]
 
@@ -1032,27 +1018,24 @@ rule (modulo E) OutRule_Enc_Supp_Rcv_M1_Snd_M2_repeat[color=#ffd447]:
    Out_Supp_Rcv_M1_Snd_M2_repeat( message, ~senderThreadID, ~messageID
    ),
    SuppSenderPTK( ~ptkID, ~senderThreadID, ~senderID,
-                  KDF(<PMK, ANonce, SNonce>), <N(n), ~senderID>
+                  KDF(<PMK, ANonce, SNonce>), <N(n), ~senderID, 'DF'>
    )
    ]
   --[
   EncryptedWithPTK( ~ptkID, ~senderThreadID, ~senderID,
-                    KDF(<PMK, ANonce, SNonce>), <N(('1'+n)), ~senderID>
+                    KDF(<PMK, ANonce, SNonce>), <N(('1'+n)), ~senderID, 'DF'>
   ),
   SuppEncryptedWithPTK( ~ptkID, ~senderThreadID, ~senderID,
-                        KDF(<PMK, ANonce, SNonce>), <N(('1'+n)), ~senderID>
-  ),
-  EncryptedWithOrInstalledPTK( ~ptkID, ~senderThreadID, ~senderID,
-                               KDF(<PMK, ANonce, SNonce>), <N(('1'+n)), ~senderID>
+                        KDF(<PMK, ANonce, SNonce>), <N(('1'+n)), ~senderID, 'DF'>
   ),
   SendMessage( ~senderThreadID, ~messageID )
   ]->
    [
    Out( snenc(message, KDF(<PMK, ANonce, SNonce>),
-              <N(('1'+n)), ~senderID>)
+              <N(('1'+n)), ~senderID, 'DF'>)
    ),
    SuppSenderPTK( ~ptkID, ~senderThreadID, ~senderID,
-                  KDF(<PMK, ANonce, SNonce>), <N(('1'+n)), ~senderID>
+                  KDF(<PMK, ANonce, SNonce>), <N(('1'+n)), ~senderID, 'DF'>
    )
    ]
 
@@ -1168,27 +1151,24 @@ rule (modulo E) OutRule_Enc_Supp_Install_Key_Snd_M4[color=#ffd447]:
    Out_Supp_Install_Key_Snd_M4( message, ~senderThreadID, ~messageID
    ),
    SuppSenderPTK( ~ptkID, ~senderThreadID, ~senderID,
-                  KDF(<PMK, ANonce, SNonce>), <N(n), ~senderID>
+                  KDF(<PMK, ANonce, SNonce>), <N(n), ~senderID, 'DF'>
    )
    ]
   --[
   EncryptedWithPTK( ~ptkID, ~senderThreadID, ~senderID,
-                    KDF(<PMK, ANonce, SNonce>), <N(('1'+n)), ~senderID>
+                    KDF(<PMK, ANonce, SNonce>), <N(('1'+n)), ~senderID, 'DF'>
   ),
   SuppEncryptedWithPTK( ~ptkID, ~senderThreadID, ~senderID,
-                        KDF(<PMK, ANonce, SNonce>), <N(('1'+n)), ~senderID>
-  ),
-  EncryptedWithOrInstalledPTK( ~ptkID, ~senderThreadID, ~senderID,
-                               KDF(<PMK, ANonce, SNonce>), <N(('1'+n)), ~senderID>
+                        KDF(<PMK, ANonce, SNonce>), <N(('1'+n)), ~senderID, 'DF'>
   ),
   SendMessage( ~senderThreadID, ~messageID )
   ]->
    [
    Out( snenc(message, KDF(<PMK, ANonce, SNonce>),
-              <N(('1'+n)), ~senderID>)
+              <N(('1'+n)), ~senderID, 'DF'>)
    ),
    SuppSenderPTK( ~ptkID, ~senderThreadID, ~senderID,
-                  KDF(<PMK, ANonce, SNonce>), <N(('1'+n)), ~senderID>
+                  KDF(<PMK, ANonce, SNonce>), <N(('1'+n)), ~senderID, 'DF'>
    )
    ]
 
@@ -1206,33 +1186,37 @@ rule (modulo E) OutRule_Supp_Install_Key_Snd_M4[color=#ffffff]:
 
 rule (modulo E) Supp_Install_PTK[color=#ffc300]:
    [
-   Fr( ~ptkID ), Fr( ~pointerNewRcvPTK ),
+   Fr( ~dataFramePtkID ), Fr( ~managementFramePtkID ),
+   Fr( ~newReceiverPtkID ), Fr( ~pointerNewRcvPTK ),
    SuppInstallPTKCommand( ~suppThreadID, ~suppID, ~PMK,
                           KDF(<~PMK, ANonce, ~SNonce>), KDF(<PMK1, ANonce1, SNonce1>),
                           GTK(x), ANonce, ~SNonce
    ),
-   !SuppReceiverPTK( ~oldPtkID, ~suppThreadID, ~suppID,
+   !SuppReceiverPTK( ~oldReceiverPtkID, ~suppThreadID, ~suppID,
                      KDF(<PMK1, ANonce1, SNonce1>), ~pointerOldRcvPTK
    )[no_precomp]
    ]
   --[
-  SupplicantInstalledPTK( ~suppThreadID, ~suppID, ~PMK, ~ptkID,
-                          KDF(<~PMK, ANonce, ~SNonce>), <N('1'), ~suppID>, GTK(x), ANonce,
-                          ~SNonce
+  SupplicantInstalledPTK( ~suppThreadID, ~suppID, ~PMK,
+                          KDF(<~PMK, ANonce, ~SNonce>), <N('1'), ~suppID, 'DF'>,
+                          <N('1'), ~suppID, 'MF'>, GTK(x), ANonce, ~SNonce
   ),
-  InstalledPTK( ~ptkID, ~suppThreadID, ~suppID,
-                KDF(<~PMK, ANonce, ~SNonce>), <N('1'), ~suppID>
+  SuppInstalledSenderPTK( ~dataFramePtkID, ~suppThreadID, ~suppID,
+                          KDF(<~PMK, ANonce, ~SNonce>), <N('1'), ~suppID, 'DF'>
   ),
-  EncryptedWithOrInstalledPTK( ~ptkID, ~suppThreadID, ~suppID,
-                               KDF(<~PMK, ANonce, ~SNonce>), <N('1'), ~suppID>
+  SuppInstalledSenderPTK( ~managementFramePtkID, ~suppThreadID,
+                          ~suppID, KDF(<~PMK, ANonce, ~SNonce>), <N('1'), ~suppID, 'MF'>
   ),
   Free( ~pointerOldRcvPTK )
   ]->
    [
-   SuppSenderPTK( ~ptkID, ~suppThreadID, ~suppID,
-                  KDF(<~PMK, ANonce, ~SNonce>), <N('1'), ~suppID>
+   SuppSenderPTK( ~dataFramePtkID, ~suppThreadID, ~suppID,
+                  KDF(<~PMK, ANonce, ~SNonce>), <N('1'), ~suppID, 'DF'>
    ),
-   !SuppReceiverPTK( ~ptkID, ~suppThreadID, ~suppID,
+   SuppSenderPTK( ~managementFramePtkID, ~suppThreadID, ~suppID,
+                  KDF(<~PMK, ANonce, ~SNonce>), <N('1'), ~suppID, 'MF'>
+   ),
+   !SuppReceiverPTK( ~newReceiverPtkID, ~suppThreadID, ~suppID,
                      KDF(<~PMK, ANonce, ~SNonce>), ~pointerNewRcvPTK
    ),
    SuppStartWNMSleepModeThread( ~suppThreadID, ~suppID, ~PMK,
@@ -1376,27 +1360,24 @@ rule (modulo E) OutRule_Enc_Supp_Rekey_GroupKey[color=#ffd447]:
    [
    Out_Supp_Rekey_GroupKey( message, ~senderThreadID, ~messageID ),
    SuppSenderPTK( ~ptkID, ~senderThreadID, ~senderID,
-                  KDF(<PMK, ANonce, SNonce>), <N(n), ~senderID>
+                  KDF(<PMK, ANonce, SNonce>), <N(n), ~senderID, 'DF'>
    )
    ]
   --[
   EncryptedWithPTK( ~ptkID, ~senderThreadID, ~senderID,
-                    KDF(<PMK, ANonce, SNonce>), <N(('1'+n)), ~senderID>
+                    KDF(<PMK, ANonce, SNonce>), <N(('1'+n)), ~senderID, 'DF'>
   ),
   SuppEncryptedWithPTK( ~ptkID, ~senderThreadID, ~senderID,
-                        KDF(<PMK, ANonce, SNonce>), <N(('1'+n)), ~senderID>
-  ),
-  EncryptedWithOrInstalledPTK( ~ptkID, ~senderThreadID, ~senderID,
-                               KDF(<PMK, ANonce, SNonce>), <N(('1'+n)), ~senderID>
+                        KDF(<PMK, ANonce, SNonce>), <N(('1'+n)), ~senderID, 'DF'>
   ),
   SendMessage( ~senderThreadID, ~messageID )
   ]->
    [
    Out( snenc(message, KDF(<PMK, ANonce, SNonce>),
-              <N(('1'+n)), ~senderID>)
+              <N(('1'+n)), ~senderID, 'DF'>)
    ),
    SuppSenderPTK( ~ptkID, ~senderThreadID, ~senderID,
-                  KDF(<PMK, ANonce, SNonce>), <N(('1'+n)), ~senderID>
+                  KDF(<PMK, ANonce, SNonce>), <N(('1'+n)), ~senderID, 'DF'>
    )
    ]
 
@@ -1531,27 +1512,24 @@ rule (modulo E) OutRule_Enc_Auth_Rekey_GroupKey_Init[color=#ffd447]:
    Out_Auth_Rekey_GroupKey_Init( message, ~senderThreadID, ~messageID
    ),
    AuthSenderPTK( ~ptkID, ~senderThreadID, ~senderID,
-                  KDF(<PMK, ANonce, SNonce>), <N(n), ~senderID>
+                  KDF(<PMK, ANonce, SNonce>), <N(n), ~senderID, 'DF'>
    )
    ]
   --[
   EncryptedWithPTK( ~ptkID, ~senderThreadID, ~senderID,
-                    KDF(<PMK, ANonce, SNonce>), <N(('1'+n)), ~senderID>
+                    KDF(<PMK, ANonce, SNonce>), <N(('1'+n)), ~senderID, 'DF'>
   ),
   AuthEncryptedWithPTK( ~ptkID, ~senderThreadID, ~senderID,
-                        KDF(<PMK, ANonce, SNonce>), <N(('1'+n)), ~senderID>
-  ),
-  EncryptedWithOrInstalledPTK( ~ptkID, ~senderThreadID, ~senderID,
-                               KDF(<PMK, ANonce, SNonce>), <N(('1'+n)), ~senderID>
+                        KDF(<PMK, ANonce, SNonce>), <N(('1'+n)), ~senderID, 'DF'>
   ),
   SendMessage( ~senderThreadID, ~messageID )
   ]->
    [
    Out( snenc(message, KDF(<PMK, ANonce, SNonce>),
-              <N(('1'+n)), ~senderID>)
+              <N(('1'+n)), ~senderID, 'DF'>)
    ),
    AuthSenderPTK( ~ptkID, ~senderThreadID, ~senderID,
-                  KDF(<PMK, ANonce, SNonce>), <N(('1'+n)), ~senderID>
+                  KDF(<PMK, ANonce, SNonce>), <N(('1'+n)), ~senderID, 'DF'>
    )
    ]
 
@@ -1628,27 +1606,24 @@ rule (modulo E) OutRule_Enc_Auth_Rekey_GroupKey_Init_repeat[color=#ffd447]:
                                         ~messageID
    ),
    AuthSenderPTK( ~ptkID, ~senderThreadID, ~senderID,
-                  KDF(<PMK, ANonce, SNonce>), <N(n), ~senderID>
+                  KDF(<PMK, ANonce, SNonce>), <N(n), ~senderID, 'DF'>
    )
    ]
   --[
   EncryptedWithPTK( ~ptkID, ~senderThreadID, ~senderID,
-                    KDF(<PMK, ANonce, SNonce>), <N(('1'+n)), ~senderID>
+                    KDF(<PMK, ANonce, SNonce>), <N(('1'+n)), ~senderID, 'DF'>
   ),
   AuthEncryptedWithPTK( ~ptkID, ~senderThreadID, ~senderID,
-                        KDF(<PMK, ANonce, SNonce>), <N(('1'+n)), ~senderID>
-  ),
-  EncryptedWithOrInstalledPTK( ~ptkID, ~senderThreadID, ~senderID,
-                               KDF(<PMK, ANonce, SNonce>), <N(('1'+n)), ~senderID>
+                        KDF(<PMK, ANonce, SNonce>), <N(('1'+n)), ~senderID, 'DF'>
   ),
   SendMessage( ~senderThreadID, ~messageID )
   ]->
    [
    Out( snenc(message, KDF(<PMK, ANonce, SNonce>),
-              <N(('1'+n)), ~senderID>)
+              <N(('1'+n)), ~senderID, 'DF'>)
    ),
    AuthSenderPTK( ~ptkID, ~senderThreadID, ~senderID,
-                  KDF(<PMK, ANonce, SNonce>), <N(('1'+n)), ~senderID>
+                  KDF(<PMK, ANonce, SNonce>), <N(('1'+n)), ~senderID, 'DF'>
    )
    ]
 
@@ -1813,27 +1788,24 @@ rule (modulo E) OutRule_Enc_Auth_WNM_Accept_Awake_Request[color=#ffd447]:
                                       ~messageID
    ),
    AuthSenderPTK( ~ptkID, ~senderThreadID, ~senderID,
-                  KDF(<PMK, ANonce, SNonce>), <N(n), ~senderID>
+                  KDF(<PMK, ANonce, SNonce>), <N(n), ~senderID, 'MF'>
    )
    ]
   --[
   EncryptedWithPTK( ~ptkID, ~senderThreadID, ~senderID,
-                    KDF(<PMK, ANonce, SNonce>), <N(('1'+n)), ~senderID>
+                    KDF(<PMK, ANonce, SNonce>), <N(('1'+n)), ~senderID, 'MF'>
   ),
   AuthEncryptedWithPTK( ~ptkID, ~senderThreadID, ~senderID,
-                        KDF(<PMK, ANonce, SNonce>), <N(('1'+n)), ~senderID>
-  ),
-  EncryptedWithOrInstalledPTK( ~ptkID, ~senderThreadID, ~senderID,
-                               KDF(<PMK, ANonce, SNonce>), <N(('1'+n)), ~senderID>
+                        KDF(<PMK, ANonce, SNonce>), <N(('1'+n)), ~senderID, 'MF'>
   ),
   SendMessage( ~senderThreadID, ~messageID )
   ]->
    [
    Out( snenc(message, KDF(<PMK, ANonce, SNonce>),
-              <N(('1'+n)), ~senderID>)
+              <N(('1'+n)), ~senderID, 'MF'>)
    ),
    AuthSenderPTK( ~ptkID, ~senderThreadID, ~senderID,
-                  KDF(<PMK, ANonce, SNonce>), <N(('1'+n)), ~senderID>
+                  KDF(<PMK, ANonce, SNonce>), <N(('1'+n)), ~senderID, 'MF'>
    )
    ]
 
@@ -1843,7 +1815,7 @@ rule (modulo E) OutRule_Enc_Auth_WNM_Accept_Awake_Request[color=#ffd447]:
 rule (modulo E) Auth_WNM_Accept_Sleep_Request[color=#ffb4fe]:
    [
    AuthWNMState( ~authThreadID, 'WNM_STATE', ~authID, ~PMK ),
-   !AuthReceiverPTK( ~ptkID, ~authThreadID, ~authID,
+   !AuthReceiverPTK( ~receiverPtkID, ~authThreadID, ~authID,
                      KDF(<~PMK, ANonce, SNonce>), ~newPointerPTK
    )[no_precomp],
    In_Auth( 'REQUEST_SLEEP', ~authThreadID,
@@ -1873,27 +1845,24 @@ rule (modulo E) OutRule_Enc_Auth_WNM_Accept_Sleep_Request[color=#ffd447]:
                                       ~messageID
    ),
    AuthSenderPTK( ~ptkID, ~senderThreadID, ~senderID,
-                  KDF(<PMK, ANonce, SNonce>), <N(n), ~senderID>
+                  KDF(<PMK, ANonce, SNonce>), <N(n), ~senderID, 'MF'>
    )
    ]
   --[
   EncryptedWithPTK( ~ptkID, ~senderThreadID, ~senderID,
-                    KDF(<PMK, ANonce, SNonce>), <N(('1'+n)), ~senderID>
+                    KDF(<PMK, ANonce, SNonce>), <N(('1'+n)), ~senderID, 'MF'>
   ),
   AuthEncryptedWithPTK( ~ptkID, ~senderThreadID, ~senderID,
-                        KDF(<PMK, ANonce, SNonce>), <N(('1'+n)), ~senderID>
-  ),
-  EncryptedWithOrInstalledPTK( ~ptkID, ~senderThreadID, ~senderID,
-                               KDF(<PMK, ANonce, SNonce>), <N(('1'+n)), ~senderID>
+                        KDF(<PMK, ANonce, SNonce>), <N(('1'+n)), ~senderID, 'MF'>
   ),
   SendMessage( ~senderThreadID, ~messageID )
   ]->
    [
    Out( snenc(message, KDF(<PMK, ANonce, SNonce>),
-              <N(('1'+n)), ~senderID>)
+              <N(('1'+n)), ~senderID, 'MF'>)
    ),
    AuthSenderPTK( ~ptkID, ~senderThreadID, ~senderID,
-                  KDF(<PMK, ANonce, SNonce>), <N(('1'+n)), ~senderID>
+                  KDF(<PMK, ANonce, SNonce>), <N(('1'+n)), ~senderID, 'MF'>
    )
    ]
 
@@ -1939,27 +1908,24 @@ rule (modulo E) OutRule_Enc_Supp_Send_WNM_Sleep_Request[color=#ffd447]:
                                     ~messageID
    ),
    SuppSenderPTK( ~ptkID, ~senderThreadID, ~senderID,
-                  KDF(<PMK, ANonce, SNonce>), <N(n), ~senderID>
+                  KDF(<PMK, ANonce, SNonce>), <N(n), ~senderID, 'MF'>
    )
    ]
   --[
   EncryptedWithPTK( ~ptkID, ~senderThreadID, ~senderID,
-                    KDF(<PMK, ANonce, SNonce>), <N(('1'+n)), ~senderID>
+                    KDF(<PMK, ANonce, SNonce>), <N(('1'+n)), ~senderID, 'MF'>
   ),
   SuppEncryptedWithPTK( ~ptkID, ~senderThreadID, ~senderID,
-                        KDF(<PMK, ANonce, SNonce>), <N(('1'+n)), ~senderID>
-  ),
-  EncryptedWithOrInstalledPTK( ~ptkID, ~senderThreadID, ~senderID,
-                               KDF(<PMK, ANonce, SNonce>), <N(('1'+n)), ~senderID>
+                        KDF(<PMK, ANonce, SNonce>), <N(('1'+n)), ~senderID, 'MF'>
   ),
   SendMessage( ~senderThreadID, ~messageID )
   ]->
    [
    Out( snenc(message, KDF(<PMK, ANonce, SNonce>),
-              <N(('1'+n)), ~senderID>)
+              <N(('1'+n)), ~senderID, 'MF'>)
    ),
    SuppSenderPTK( ~ptkID, ~senderThreadID, ~senderID,
-                  KDF(<PMK, ANonce, SNonce>), <N(('1'+n)), ~senderID>
+                  KDF(<PMK, ANonce, SNonce>), <N(('1'+n)), ~senderID, 'MF'>
    )
    ]
 
@@ -1971,7 +1937,7 @@ rule (modulo E) Supp_WNM_Receive_Sleep_Accept[color=#87e1e6]:
    SuppWNMState( ~suppThreadID, 'AWAIT_SLEEP_CONFIRMATION', ~suppID,
                  ~PMK
    ),
-   !SuppReceiverPTK( ~ptkID, ~suppThreadID, ~suppID,
+   !SuppReceiverPTK( ~receiverPtkID, ~suppThreadID, ~suppID,
                      KDF(<~PMK, ANonce, SNonce>), ~pointerRcvPTK
    )[no_precomp],
    In_Supp( 'ACCEPT_SLEEP', ~suppThreadID, KDF(<~PMK, ANonce, SNonce>)
@@ -2013,27 +1979,24 @@ rule (modulo E) OutRule_Enc_Supp_Send_WNM_Awake_Request[color=#ffd447]:
                                     ~messageID
    ),
    SuppSenderPTK( ~ptkID, ~senderThreadID, ~senderID,
-                  KDF(<PMK, ANonce, SNonce>), <N(n), ~senderID>
+                  KDF(<PMK, ANonce, SNonce>), <N(n), ~senderID, 'MF'>
    )
    ]
   --[
   EncryptedWithPTK( ~ptkID, ~senderThreadID, ~senderID,
-                    KDF(<PMK, ANonce, SNonce>), <N(('1'+n)), ~senderID>
+                    KDF(<PMK, ANonce, SNonce>), <N(('1'+n)), ~senderID, 'MF'>
   ),
   SuppEncryptedWithPTK( ~ptkID, ~senderThreadID, ~senderID,
-                        KDF(<PMK, ANonce, SNonce>), <N(('1'+n)), ~senderID>
-  ),
-  EncryptedWithOrInstalledPTK( ~ptkID, ~senderThreadID, ~senderID,
-                               KDF(<PMK, ANonce, SNonce>), <N(('1'+n)), ~senderID>
+                        KDF(<PMK, ANonce, SNonce>), <N(('1'+n)), ~senderID, 'MF'>
   ),
   SendMessage( ~senderThreadID, ~messageID )
   ]->
    [
    Out( snenc(message, KDF(<PMK, ANonce, SNonce>),
-              <N(('1'+n)), ~senderID>)
+              <N(('1'+n)), ~senderID, 'MF'>)
    ),
    SuppSenderPTK( ~ptkID, ~senderThreadID, ~senderID,
-                  KDF(<PMK, ANonce, SNonce>), <N(('1'+n)), ~senderID>
+                  KDF(<PMK, ANonce, SNonce>), <N(('1'+n)), ~senderID, 'MF'>
    )
    ]
 
@@ -2045,10 +2008,10 @@ rule (modulo E) Supp_WNM_Receive_Awake_Accept[color=#87e1e6]:
    SuppWNMState( ~suppThreadID, 'AWAIT_AWAKE_CONFIRMATION', ~suppID,
                  ~PMK
    ),
-   !SuppReceiverPTK( ~ptkID, ~suppThreadID, ~suppID,
+   !SuppReceiverPTK( ~receiverPtkID, ~suppThreadID, ~suppID,
                      KDF(<~PMK, ANonce, SNonce>), ~pointerRcvPTK
    )[no_precomp],
-   In_Supp( <'ACCEPT_AWAKE', GTK(x), <N(n), authID>, $index>,
+   In_Supp( <'ACCEPT_AWAKE', GTK(x), <N(n), authID>, $newIndex>,
             ~suppThreadID, KDF(<~PMK, ANonce, SNonce>)
    )[no_precomp],
    ReceiverGTK( ~suppThreadID, ~oldGTKID, ~PMK, oldGTK, oldGTKNonce,
@@ -2134,26 +2097,28 @@ by sorry
 lemma authenticator_used_ptks_must_be_installed [reuse,
                                                  use_induction, heuristic=S]:
   all-traces
-  "∀ ptkID authID authThreadID ptkInstallerID PTK nonceNumber #i.
+  "∀ ptkID authID authThreadID PTK nonceNumber ptkInstallerID
+     frameType #i.
     (AuthEncryptedWithPTK( ptkID, authThreadID, authID, PTK,
-                           <nonceNumber, ptkInstallerID>
+                           <nonceNumber, ptkInstallerID, frameType>
      ) @ #i) ⇒
     (∃ #j.
       ((#j < #i) ∧
-       (AuthInstalledPTK( ptkID, authThreadID, authID, PTK,
-                          <N('1'), authID>
+       (AuthInstalledSenderPTK( ptkID, authThreadID, authID, PTK,
+                                <N('1'), authID, frameType>
         )[+] @ #j)) ∧
       (authID = ptkInstallerID))"
 /*
 guarded formula characterizing all counter-examples:
-"∃ ptkID authID authThreadID ptkInstallerID PTK nonceNumber #i.
+"∃ ptkID authID authThreadID PTK nonceNumber ptkInstallerID
+   frameType #i.
   (AuthEncryptedWithPTK( ptkID, authThreadID, authID, PTK,
-                         <nonceNumber, ptkInstallerID>
+                         <nonceNumber, ptkInstallerID, frameType>
    ) @ #i)
  ∧
   ∀ #j.
-   (AuthInstalledPTK( ptkID, authThreadID, authID, PTK,
-                      <N('1'), authID>
+   (AuthInstalledSenderPTK( ptkID, authThreadID, authID, PTK,
+                            <N('1'), authID, frameType>
     )[+] @ #j) ∧
    (authID = ptkInstallerID)
   ⇒
@@ -2164,26 +2129,28 @@ by sorry
 lemma supplicant_used_ptks_must_be_installed [reuse, use_induction,
                                               heuristic=S]:
   all-traces
-  "∀ ptkID suppID suppThreadID ptkInstallerID PTK nonceNumber #i.
+  "∀ ptkID suppID suppThreadID ptkInstallerID PTK nonceNumber
+     frameType #i.
     (SuppEncryptedWithPTK( ptkID, suppThreadID, suppID, PTK,
-                           <nonceNumber, ptkInstallerID>
+                           <nonceNumber, ptkInstallerID, frameType>
      ) @ #i) ⇒
-    (∃ PMK ANonce SNonce x #j.
+    (∃ #j.
       ((#j < #i) ∧
-       (SupplicantInstalledPTK( suppThreadID, suppID, PMK, ptkID, PTK,
-                                <N('1'), suppID>, GTK(x), ANonce, SNonce
+       (SuppInstalledSenderPTK( ptkID, suppThreadID, suppID, PTK,
+                                <N('1'), suppID, frameType>
         )[+] @ #j)) ∧
       (suppID = ptkInstallerID))"
 /*
 guarded formula characterizing all counter-examples:
-"∃ ptkID suppID suppThreadID ptkInstallerID PTK nonceNumber #i.
+"∃ ptkID suppID suppThreadID ptkInstallerID PTK nonceNumber
+   frameType #i.
   (SuppEncryptedWithPTK( ptkID, suppThreadID, suppID, PTK,
-                         <nonceNumber, ptkInstallerID>
+                         <nonceNumber, ptkInstallerID, frameType>
    ) @ #i)
  ∧
-  ∀ PMK ANonce SNonce x #j.
-   (SupplicantInstalledPTK( suppThreadID, suppID, PMK, ptkID, PTK,
-                            <N('1'), suppID>, GTK(x), ANonce, SNonce
+  ∀ #j.
+   (SuppInstalledSenderPTK( ptkID, suppThreadID, suppID, PTK,
+                            <N('1'), suppID, frameType>
     )[+] @ #j) ∧
    (suppID = ptkInstallerID)
   ⇒
@@ -2624,7 +2591,7 @@ guarded formula characterizing all counter-examples:
 by sorry
 
 lemma supplicant_rcv_m1_must_be_preceded_by_associate [reuse,
-                                                       use_induction, heuristic=S]:
+                                                       use_induction, heuristic=C]:
   all-traces
   "∀ suppThreadID suppID PMK authThreadID PTK GTK ANonce SNonce ctr
      #i.
@@ -3035,26 +3002,26 @@ by sorry
 lemma only_one_supplicant_can_be_installed_for_a_pmk [reuse,
                                                       heuristic=C]:
   all-traces
-  "∀ suppThreadID1 suppThreadID2 suppID1 suppID2 GTK1 GTK2 PMK ptkID1
-     ptkID2 PTK1 PTK2 ptkNonce1 ptkNonce2 ANonce1 ANonce2 SNonce1
-     SNonce2 #i #j.
-    ((SupplicantInstalledPTK( suppThreadID1, suppID1, PMK, ptkID1,
-                              PTK1, ptkNonce1, GTK1, ANonce1, SNonce1
+  "∀ suppThreadID1 suppThreadID2 suppID1 suppID2 GTK1 GTK2 PMK PTK1
+     PTK2 ptkDfNonce1 ptkDfNonce2 ptkMfNonce1 ptkMfNonce2 ANonce1
+     ANonce2 SNonce1 SNonce2 #i #j.
+    ((SupplicantInstalledPTK( suppThreadID1, suppID1, PMK, PTK1,
+                              ptkDfNonce1, ptkMfNonce1, GTK1, ANonce1, SNonce1
       ) @ #i) ∧
-     (SupplicantInstalledPTK( suppThreadID2, suppID2, PMK, ptkID2, PTK2,
-                              ptkNonce2, GTK2, ANonce2, SNonce2
+     (SupplicantInstalledPTK( suppThreadID2, suppID2, PMK, PTK2,
+                              ptkDfNonce2, ptkMfNonce2, GTK2, ANonce2, SNonce2
       ) @ #j)) ⇒
     (suppThreadID1 = suppThreadID2)"
 /*
 guarded formula characterizing all counter-examples:
-"∃ suppThreadID1 suppThreadID2 suppID1 suppID2 GTK1 GTK2 PMK ptkID1
-   ptkID2 PTK1 PTK2 ptkNonce1 ptkNonce2 ANonce1 ANonce2 SNonce1
-   SNonce2 #i #j.
-  (SupplicantInstalledPTK( suppThreadID1, suppID1, PMK, ptkID1, PTK1,
-                           ptkNonce1, GTK1, ANonce1, SNonce1
+"∃ suppThreadID1 suppThreadID2 suppID1 suppID2 GTK1 GTK2 PMK PTK1
+   PTK2 ptkDfNonce1 ptkDfNonce2 ptkMfNonce1 ptkMfNonce2 ANonce1
+   ANonce2 SNonce1 SNonce2 #i #j.
+  (SupplicantInstalledPTK( suppThreadID1, suppID1, PMK, PTK1,
+                           ptkDfNonce1, ptkMfNonce1, GTK1, ANonce1, SNonce1
    ) @ #i) ∧
-  (SupplicantInstalledPTK( suppThreadID2, suppID2, PMK, ptkID2, PTK2,
-                           ptkNonce2, GTK2, ANonce2, SNonce2
+  (SupplicantInstalledPTK( suppThreadID2, suppID2, PMK, PTK2,
+                           ptkDfNonce2, ptkMfNonce2, GTK2, ANonce2, SNonce2
    ) @ #j)
  ∧
   ¬(suppThreadID1 = suppThreadID2)"
@@ -3143,8 +3110,6 @@ guarded formula characterizing all counter-examples:
 by sorry
 
 lemma supplicant_can_wake_up [heuristic=S,
-                              hide_lemma=gtk_id_stays_the_same_if_there_is_no_new_key_installation,
-                              hide_lemma=supplicant_is_replayed_only_if_it_installs_with_lower_nonce,
                               hide_lemma=supplicant_gtk_installation_means_auth_sent_gtk,
                               hide_lemma=supplicant_receiver_gtk_must_be_installed,
                               hide_lemma=pmks_are_secret_unless_revealed,
@@ -3184,8 +3149,6 @@ guarded formula characterizing all satisfying traces:
 by sorry
 
 lemma supplicant_can_request_sleep [heuristic=S,
-                                    hide_lemma=gtk_id_stays_the_same_if_there_is_no_new_key_installation,
-                                    hide_lemma=supplicant_is_replayed_only_if_it_installs_with_lower_nonce,
                                     hide_lemma=supplicant_gtk_installation_means_auth_sent_gtk,
                                     hide_lemma=supplicant_receiver_gtk_must_be_installed,
                                     hide_lemma=pmks_are_secret_unless_revealed,
@@ -3225,8 +3188,6 @@ guarded formula characterizing all satisfying traces:
 by sorry
 
 lemma supplicant_can_start_wnm_thread [heuristic=S,
-                                       hide_lemma=gtk_id_stays_the_same_if_there_is_no_new_key_installation,
-                                       hide_lemma=supplicant_is_replayed_only_if_it_installs_with_lower_nonce,
                                        hide_lemma=supplicant_gtk_installation_means_auth_sent_gtk,
                                        hide_lemma=supplicant_receiver_gtk_must_be_installed,
                                        hide_lemma=pmks_are_secret_unless_revealed,
@@ -3268,8 +3229,6 @@ guarded formula characterizing all satisfying traces:
 by sorry
 
 lemma supplicant_can_rcv_m1 [heuristic=S,
-                             hide_lemma=gtk_id_stays_the_same_if_there_is_no_new_key_installation,
-                             hide_lemma=supplicant_is_replayed_only_if_it_installs_with_lower_nonce,
                              hide_lemma=supplicant_gtk_installation_means_auth_sent_gtk,
                              hide_lemma=supplicant_receiver_gtk_must_be_installed,
                              hide_lemma=pmks_are_secret_unless_revealed,
@@ -3315,8 +3274,6 @@ guarded formula characterizing all satisfying traces:
 by sorry
 
 lemma supplicant_can_rcv_m3 [heuristic=S,
-                             hide_lemma=gtk_id_stays_the_same_if_there_is_no_new_key_installation,
-                             hide_lemma=supplicant_is_replayed_only_if_it_installs_with_lower_nonce,
                              hide_lemma=supplicant_gtk_installation_means_auth_sent_gtk,
                              hide_lemma=supplicant_receiver_gtk_must_be_installed,
                              hide_lemma=pmks_are_secret_unless_revealed,
@@ -3362,8 +3319,6 @@ guarded formula characterizing all satisfying traces:
 by sorry
 
 lemma supplicant_can_send_m4 [heuristic=S,
-                              hide_lemma=gtk_id_stays_the_same_if_there_is_no_new_key_installation,
-                              hide_lemma=supplicant_is_replayed_only_if_it_installs_with_lower_nonce,
                               hide_lemma=supplicant_gtk_installation_means_auth_sent_gtk,
                               hide_lemma=supplicant_receiver_gtk_must_be_installed,
                               hide_lemma=pmks_are_secret_unless_revealed,
@@ -3407,8 +3362,6 @@ guarded formula characterizing all satisfying traces:
 by sorry
 
 lemma can_install_key [heuristic=S,
-                       hide_lemma=gtk_id_stays_the_same_if_there_is_no_new_key_installation,
-                       hide_lemma=supplicant_is_replayed_only_if_it_installs_with_lower_nonce,
                        hide_lemma=supplicant_gtk_installation_means_auth_sent_gtk,
                        hide_lemma=supplicant_receiver_gtk_must_be_installed,
                        hide_lemma=pmks_are_secret_unless_revealed,
@@ -3438,30 +3391,28 @@ lemma can_install_key [heuristic=S,
                        hide_lemma=authenticator_gtk_is_secret,
                        hide_lemma=authenticator_gtk_is_ku_secret]:
   exists-trace
-  "∃ suppThreadID suppID authThreadID authID PMK ptkID PTK ptkNonce
-     GTK ANonce SNonce ctr1 #i #j.
+  "∃ suppThreadID suppID authThreadID authID PMK PTK ptkDfNonce
+     ptkMfNonce GTK ANonce SNonce ctr1 #i #j.
     (AuthenticatorInstalled( authThreadID, authID, PMK, suppThreadID,
                              PTK, ANonce, SNonce, ctr1
      ) @ #i) ∧
-    (SupplicantInstalledPTK( suppThreadID, suppID, PMK, ptkID, PTK,
-                             ptkNonce, GTK, ANonce, SNonce
+    (SupplicantInstalledPTK( suppThreadID, suppID, PMK, PTK,
+                             ptkDfNonce, ptkMfNonce, GTK, ANonce, SNonce
      ) @ #j)"
 /*
 guarded formula characterizing all satisfying traces:
-"∃ suppThreadID suppID authThreadID authID PMK ptkID PTK ptkNonce
-   GTK ANonce SNonce ctr1 #i #j.
+"∃ suppThreadID suppID authThreadID authID PMK PTK ptkDfNonce
+   ptkMfNonce GTK ANonce SNonce ctr1 #i #j.
   (AuthenticatorInstalled( authThreadID, authID, PMK, suppThreadID,
                            PTK, ANonce, SNonce, ctr1
    ) @ #i) ∧
-  (SupplicantInstalledPTK( suppThreadID, suppID, PMK, ptkID, PTK,
-                           ptkNonce, GTK, ANonce, SNonce
+  (SupplicantInstalledPTK( suppThreadID, suppID, PMK, PTK,
+                           ptkDfNonce, ptkMfNonce, GTK, ANonce, SNonce
    ) @ #j)"
 */
 by sorry
 
 lemma can_perform_handshakes_in_parallel [heuristic=S,
-                                          hide_lemma=gtk_id_stays_the_same_if_there_is_no_new_key_installation,
-                                          hide_lemma=supplicant_is_replayed_only_if_it_installs_with_lower_nonce,
                                           hide_lemma=supplicant_gtk_installation_means_auth_sent_gtk,
                                           hide_lemma=supplicant_receiver_gtk_must_be_installed,
                                           hide_lemma=pmks_are_secret_unless_revealed,
@@ -3492,34 +3443,36 @@ lemma can_perform_handshakes_in_parallel [heuristic=S,
                                           hide_lemma=authenticator_gtk_is_ku_secret]:
   exists-trace
   "∃ authID authThreadID1 authThreadID2 suppID1 suppID2 suppThreadID1
-     suppThreadID2 PMK1 PMK2 ptkID1 ptkID2 ptkNonce1 ptkNonce2 PTK1 PTK2
-     GTK ANonce1 ANonce2 SNonce1 SNonce2 #i #j #k #l.
+     suppThreadID2 PMK1 PMK2 ptkDfNonce1 ptkMfNonce1 ptkDfNonce2
+     ptkMfNonce2 PTK1 PTK2 GTK ANonce1 ANonce2 SNonce1 SNonce2 #i #j #k
+     #l.
     (((((Associate( authID, authThreadID1, suppID1, suppThreadID1, PMK1
          ) @ #i) ∧
         (Associate( authID, authThreadID2, suppID2, suppThreadID2, PMK2
          ) @ #j)) ∧
        (#i < #j)) ∧
       (#k < #l)) ∧
-     (SupplicantInstalledPTK( suppThreadID2, suppID2, PMK2, ptkID2,
-                              PTK2, ptkNonce2, GTK, ANonce2, SNonce2
+     (SupplicantInstalledPTK( suppThreadID2, suppID2, PMK2, PTK2,
+                              ptkDfNonce2, ptkMfNonce2, GTK, ANonce2, SNonce2
       ) @ #k)) ∧
-    (SupplicantInstalledPTK( suppThreadID1, suppID1, PMK1, ptkID1,
-                             PTK1, ptkNonce1, GTK, ANonce1, SNonce1
+    (SupplicantInstalledPTK( suppThreadID1, suppID1, PMK1, PTK1,
+                             ptkDfNonce1, ptkMfNonce1, GTK, ANonce1, SNonce1
      ) @ #l)"
 /*
 guarded formula characterizing all satisfying traces:
 "∃ authID authThreadID1 authThreadID2 suppID1 suppID2 suppThreadID1
-   suppThreadID2 PMK1 PMK2 ptkID1 ptkID2 ptkNonce1 ptkNonce2 PTK1 PTK2
-   GTK ANonce1 ANonce2 SNonce1 SNonce2 #i #j #k #l.
+   suppThreadID2 PMK1 PMK2 ptkDfNonce1 ptkMfNonce1 ptkDfNonce2
+   ptkMfNonce2 PTK1 PTK2 GTK ANonce1 ANonce2 SNonce1 SNonce2 #i #j #k
+   #l.
   (Associate( authID, authThreadID1, suppID1, suppThreadID1, PMK1
    ) @ #i) ∧
   (Associate( authID, authThreadID2, suppID2, suppThreadID2, PMK2
    ) @ #j) ∧
-  (SupplicantInstalledPTK( suppThreadID2, suppID2, PMK2, ptkID2,
-                           PTK2, ptkNonce2, GTK, ANonce2, SNonce2
+  (SupplicantInstalledPTK( suppThreadID2, suppID2, PMK2, PTK2,
+                           ptkDfNonce2, ptkMfNonce2, GTK, ANonce2, SNonce2
    ) @ #k) ∧
-  (SupplicantInstalledPTK( suppThreadID1, suppID1, PMK1, ptkID1,
-                           PTK1, ptkNonce1, GTK, ANonce1, SNonce1
+  (SupplicantInstalledPTK( suppThreadID1, suppID1, PMK1, PTK1,
+                           ptkDfNonce1, ptkMfNonce1, GTK, ANonce1, SNonce1
    ) @ #l)
  ∧
   (#i < #j) ∧ (#k < #l)"
@@ -3527,8 +3480,6 @@ guarded formula characterizing all satisfying traces:
 by sorry
 
 lemma can_rekey [heuristic=S,
-                 hide_lemma=gtk_id_stays_the_same_if_there_is_no_new_key_installation,
-                 hide_lemma=supplicant_is_replayed_only_if_it_installs_with_lower_nonce,
                  hide_lemma=supplicant_gtk_installation_means_auth_sent_gtk,
                  hide_lemma=supplicant_receiver_gtk_must_be_installed,
                  hide_lemma=pmks_are_secret_unless_revealed,
@@ -3583,8 +3534,6 @@ guarded formula characterizing all satisfying traces:
 by sorry
 
 lemma can_receive_group_payloads [heuristic=S,
-                                  hide_lemma=gtk_id_stays_the_same_if_there_is_no_new_key_installation,
-                                  hide_lemma=supplicant_is_replayed_only_if_it_installs_with_lower_nonce,
                                   hide_lemma=supplicant_gtk_installation_means_auth_sent_gtk,
                                   hide_lemma=supplicant_receiver_gtk_must_be_installed,
                                   hide_lemma=pmks_are_secret_unless_revealed,
@@ -3637,8 +3586,6 @@ guarded formula characterizing all satisfying traces:
 by sorry
 
 lemma authenticator_can_install_new_gtk [heuristic=S,
-                                         hide_lemma=gtk_id_stays_the_same_if_there_is_no_new_key_installation,
-                                         hide_lemma=supplicant_is_replayed_only_if_it_installs_with_lower_nonce,
                                          hide_lemma=supplicant_gtk_installation_means_auth_sent_gtk,
                                          hide_lemma=supplicant_receiver_gtk_must_be_installed,
                                          hide_lemma=pmks_are_secret_unless_revealed,
@@ -3692,8 +3639,6 @@ guarded formula characterizing all satisfying traces:
 by sorry
 
 lemma krack_attack_ptk [heuristic=S,
-                        hide_lemma=gtk_id_stays_the_same_if_there_is_no_new_key_installation,
-                        hide_lemma=supplicant_is_replayed_only_if_it_installs_with_lower_nonce,
                         hide_lemma=supplicant_gtk_installation_means_auth_sent_gtk,
                         hide_lemma=supplicant_receiver_gtk_must_be_installed,
                         hide_lemma=pmks_are_secret_unless_revealed,
@@ -3723,18 +3668,18 @@ lemma krack_attack_ptk [heuristic=S,
                         hide_lemma=authenticator_gtk_is_secret,
                         hide_lemma=authenticator_gtk_is_ku_secret]:
   exists-trace
-  "∃ suppThreadID suppID PMK ptkID PTK ptkNonce GTK ANonce SNonce #i
-     #j.
-    (SupplicantInstalledPTK( suppThreadID, suppID, PMK, ptkID, PTK,
-                             ptkNonce, GTK, ANonce, SNonce
+  "∃ suppThreadID suppID PMK PTK ptkDfNonce ptkMfNonce GTK ANonce
+     SNonce #i #j.
+    (SupplicantInstalledPTK( suppThreadID, suppID, PMK, PTK,
+                             ptkDfNonce, ptkMfNonce, GTK, ANonce, SNonce
      ) @ #i) ∧
     (K( PTK ) @ #j)"
 /*
 guarded formula characterizing all satisfying traces:
-"∃ suppThreadID suppID PMK ptkID PTK ptkNonce GTK ANonce SNonce #i
-   #j.
-  (SupplicantInstalledPTK( suppThreadID, suppID, PMK, ptkID, PTK,
-                           ptkNonce, GTK, ANonce, SNonce
+"∃ suppThreadID suppID PMK PTK ptkDfNonce ptkMfNonce GTK ANonce
+   SNonce #i #j.
+  (SupplicantInstalledPTK( suppThreadID, suppID, PMK, PTK,
+                           ptkDfNonce, ptkMfNonce, GTK, ANonce, SNonce
    ) @ #i) ∧
   (K( PTK ) @ #j)"
 */
@@ -3832,7 +3777,7 @@ solve( !KU( KDF(<~PMK, ANonce, ~SNonce>) ) @ #vk )
   next
     case sendPTKEncryptedPayload_Supp
     solve( !KU( snenc(m2, KDF(<~PMK, ANonce, ~SNonce>),
-                      <N(('1'+n)), ~senderID>)
+                      <N(('1'+n)), ~senderID, 'DF'>)
            )[+] @ #vk.3 )
       case OutRule_Enc_Auth_Check_MIC_M2_Snd_M3_case_1
       by sorry
@@ -3876,12 +3821,6 @@ solve( !KU( KDF(<~PMK, ANonce, ~SNonce>) ) @ #vk )
       case OutRule_Enc_Auth_Snd_M3_repeat
       by sorry
     next
-      case OutRule_Enc_Auth_WNM_Accept_Awake_Request
-      by sorry
-    next
-      case OutRule_Enc_Auth_WNM_Accept_Sleep_Request
-      by sorry
-    next
       case OutRule_Enc_Supp_Install_Key_Snd_M4_case_1
       by sorry
     next
@@ -3906,15 +3845,6 @@ solve( !KU( KDF(<~PMK, ANonce, ~SNonce>) ) @ #vk )
       case OutRule_Enc_Supp_Rekey_GroupKey
       by sorry
     next
-      case OutRule_Enc_Supp_Send_WNM_Awake_Request
-      by sorry
-    next
-      case OutRule_Enc_Supp_Send_WNM_Sleep_Request_case_1
-      by sorry
-    next
-      case OutRule_Enc_Supp_Send_WNM_Sleep_Request_case_2
-      by sorry
-    next
       case c_snenc
       by contradiction /* cyclic */
     next
@@ -3922,8 +3852,8 @@ solve( !KU( KDF(<~PMK, ANonce, ~SNonce>) ) @ #vk )
       by sorry
     next
       case sendPTKEncryptedPayload_Supp
-      solve( SuppSenderPTK( ~ptkID.1, ~senderThreadID, ~senderID,
-                            KDF(<~PMK, ANonce, ~SNonce>), <N(n), ~senderID>
+      solve( SuppSenderPTK( ~ptkID, ~senderThreadID, ~senderID,
+                            KDF(<~PMK, ANonce, ~SNonce>), <N(n), ~senderID, 'DF'>
              ) ▶₀ #vr.1 )
         case OutRule_Enc_Supp_Install_Key_Snd_M4_case_1
         by sorry
@@ -3949,18 +3879,9 @@ solve( !KU( KDF(<~PMK, ANonce, ~SNonce>) ) @ #vk )
         case OutRule_Enc_Supp_Rekey_GroupKey
         by sorry
       next
-        case OutRule_Enc_Supp_Send_WNM_Awake_Request
-        by sorry
-      next
-        case OutRule_Enc_Supp_Send_WNM_Sleep_Request_case_1
-        by sorry
-      next
-        case OutRule_Enc_Supp_Send_WNM_Sleep_Request_case_2
-        by sorry
-      next
         case Supp_Install_PTK_case_1
-        solve( SuppSenderPTK( ~ptkID.2, ~senderThreadID.1, ~senderID,
-                              KDF(<~PMK, ANonce, ~SNonce>), <N('1'), ~senderID>
+        solve( SuppSenderPTK( ~ptkID.1, ~senderThreadID.1, ~senderID,
+                              KDF(<~PMK, ANonce, ~SNonce>), <N('1'), ~senderID, 'DF'>
                ) ▶₀ #vr.2 )
           case Supp_Install_PTK_case_1
           by contradiction /* from formulas */
@@ -3979,268 +3900,172 @@ solve( !KU( KDF(<~PMK, ANonce, ~SNonce>) ) @ #vk )
                                S(ctr_minus_1)>
                    ) ▶₀ #vr.5 )
               case Supp_Rcv_M1_Snd_M2_case_1
-              solve( SuppInstallPTKCommand( ~senderThreadID, ~suppID, ~PMK,
-                                            KDF(<~PMK, ANonce, ~SNonce>),
-                                            KDF(<PMK1, ANonce1, SNonce1>), GTK(x), ANonce, ~SNonce
-                     ) ▶₂ #i )
-                case Supp_Install_Key_Snd_M4_case_1
-                solve( SuppState( ~senderThreadID, 'PTK_CALC_NEGOTIATING',
-                                  <~senderID, ~PMK, ~authThreadID, KDF(<PMK1, ANonce1, SNonce1>), 
-                                   <GTK(y), <N(m), authID2>, $oldIndex>, 
-                                   <GTK(x.2), <N(n), authID1>, $newIndex>, ANonce, ~SNonce, 
-                                   S(ctr_m3_minus_1)>
-                       ) ▶₀ #j.3 )
-                  case Supp_Rcv_M3
-                  solve( ReceiverGTK( ~senderThreadID, ~oldGTKID, ~PMK, GTK('NULL'),
-                                      <N('NULL'), 'NULL'>, 'NULL'
-                         ) ▶₁ #j.3 )
-                    case Auth_Associate_With_Supp
-                    solve( !SuppReceiverPTK( ~oldPtkID, ~senderThreadID, ~senderID,
-                                             KDF(<'NULL', 'NULL', 'NULL'>), ~pointerOldRcvPTK
-                           )[no_precomp] ▶₃ #i )
-                      case Auth_Associate_With_Supp
-                      solve( In_Supp( <
-                                       <S(ctr_m3_minus_1), 
-                                        senc(<GTK(x), <N(n), authID1>, $newIndex>,
+              solve( SuppState( ~senderThreadID, 'PTK_CALC_NEGOTIATING',
+                                <~senderID, ~PMK, ~authThreadID, 
+                                 KDF(<PMK1.1, ANonce1.1, SNonce1.1>), 
+                                 <GTK(y), <N(m), authID2>, $oldIndex>, 
+                                 <GTK(x.2), <N(n), authID1>, $newIndex>, ANonce, ~SNonce, 
+                                 S(ctr_m3_minus_1)>
+                     ) ▶₀ #j.3 )
+                case Supp_Rcv_M3
+                solve( SuppInstallPTKCommand( ~senderThreadID, ~suppID, ~PMK,
+                                              KDF(<~PMK, ANonce, ~SNonce>),
+                                              KDF(<PMK1, ANonce1, SNonce1>), GTK(x), ANonce, ~SNonce
+                       ) ▶₄ #i )
+                  case Supp_Install_Key_Snd_M4_case_1
+                  solve( In_Supp( <
+                                   <S(ctr_m3_minus_1.1), 
+                                    senc(<GTK(x.2), <N(n.1), authID1.1>, $newIndex.1>,
+                                         KDF(<~PMK, ANonce, ~SNonce>))
+                                   >, 
+                                   MIC(KDF(<~PMK, ANonce, ~SNonce>),
+                                       <S(ctr_m3_minus_1.1), 
+                                        senc(<GTK(x.2), <N(n.1), authID1.1>, $newIndex.1>,
+                                             KDF(<~PMK, ANonce, ~SNonce>))
+                                       >)
+                                  >,
+                                  ~senderThreadID, KDF(<~PMK, ANonce, ~SNonce>)
+                         )[no_precomp] ▶₁ #vr.6 )
+                    case Receive_Encrypted_Message_Supp
+                    solve( !KU( snenc(<
+                                       <S(ctr_m3_minus_1.1), 
+                                        senc(<GTK(x.2), <N(n.1), authID1.1>, $newIndex.1>,
                                              KDF(<~PMK, ANonce, ~SNonce>))
                                        >, 
                                        MIC(KDF(<~PMK, ANonce, ~SNonce>),
+                                           <S(ctr_m3_minus_1.1), 
+                                            senc(<GTK(x.2), <N(n.1), authID1.1>, $newIndex.1>,
+                                                 KDF(<~PMK, ANonce, ~SNonce>))
+                                           >)
+                                      >,
+                                      KDF(<~PMK, ANonce, ~SNonce>), <N(n.2), senderID.1, frameType>)
+                           ) @ #vk.4 )
+                      case OutRule_Enc_Auth_Check_MIC_M2_Snd_M3_case_1
+                      by sorry
+                    next
+                      case OutRule_Enc_Auth_Check_MIC_M2_Snd_M3_case_2
+                      by sorry
+                    next
+                      case OutRule_Enc_Auth_Rekey_GroupKey_Init
+                      by sorry
+                    next
+                      case OutRule_Enc_Auth_Rekey_GroupKey_Init_repeat
+                      by sorry
+                    next
+                      case OutRule_Enc_Auth_Snd_M3_repeat
+                      solve( In_Supp( <
+                                       <S(ctr_m3_minus_1), 
+                                        senc(<GTK(x), <N(n), authID1>, $newIndex>,
+                                             KDF(<~PMK, ~ANonce, ~SNonce>))
+                                       >, 
+                                       MIC(KDF(<~PMK, ~ANonce, ~SNonce>),
                                            <S(ctr_m3_minus_1), 
                                             senc(<GTK(x), <N(n), authID1>, $newIndex>,
-                                                 KDF(<~PMK, ANonce, ~SNonce>))
+                                                 KDF(<~PMK, ~ANonce, ~SNonce>))
                                            >)
                                       >,
                                       ~senderThreadID, KDF(<'NULL', 'NULL', 'NULL'>)
                              )[no_precomp] ▶₁ #vr.3 )
                         case Receive_Clear_Message_Supp
-                        solve( In_Supp( <
-                                         <S(ctr_m3_minus_1.1), 
-                                          senc(<GTK(x.2), <N(n.1), authID1.1>, $newIndex.1>,
-                                               KDF(<~PMK, ANonce, ~SNonce>))
-                                         >, 
-                                         MIC(KDF(<~PMK, ANonce, ~SNonce>),
-                                             <S(ctr_m3_minus_1.1), 
-                                              senc(<GTK(x.2), <N(n.1), authID1.1>, $newIndex.1>,
-                                                   KDF(<~PMK, ANonce, ~SNonce>))
-                                             >)
-                                        >,
-                                        ~senderThreadID, KDF(<~PMK, ANonce, ~SNonce>)
-                               )[no_precomp] ▶₁ #vr.6 )
-                          case Receive_Encrypted_Message_Supp
-                          solve( !KU( senc(<GTK(x), <N(n), authID1>, $newIndex>,
-                                           KDF(<~PMK, ANonce, ~SNonce>))
-                                 ) @ #vk.7 )
-                            case OutRule_Auth_Check_MIC_M2_Snd_M3_case_1
-                            solve( AuthState( ~senderThreadID.1, 'PTK_START',
-                                              <~authID.1, ~PMK, ~suppThreadID, 
-                                               KDF(<PMK1, ANonce1, SNonce1>), ~ANonce, oldSNonce, 
-                                               S(ctr_minus_1.1)>
-                                   ) ▶₀ #vr.14 )
-                              case Auth_Snd_M1_case_1
-                              solve( !KU( MIC(KDF(<~PMK, ~ANonce, ~SNonce>),
-                                              <S(ctr_m3_minus_1), 
-                                               senc(<GTK(~x), <N(n), ~authID>, $newIndex>,
-                                                    KDF(<~PMK, ~ANonce, ~SNonce>))
-                                              >)
-                                     ) @ #vk.8 )
-                                case OutRule_Auth_Check_MIC_M2_Snd_M3
-                                solve( !KU( snenc(<
-                                                   <S(ctr_m3_minus_1), 
-                                                    senc(<GTK(x.2), <N(n.1), authID1>, $newIndex.1>,
-                                                         KDF(<~PMK, ~ANonce, ~SNonce>))
-                                                   >, 
-                                                   MIC(KDF(<~PMK, ~ANonce, ~SNonce>),
-                                                       <S(ctr_m3_minus_1), 
-                                                        senc(<GTK(x.2), <N(n.1), authID1>, 
-                                                              $newIndex.1>,
-                                                             KDF(<~PMK, ~ANonce, ~SNonce>))
-                                                       >)
-                                                  >,
-                                                  KDF(<~PMK, ~ANonce, ~SNonce>),
-                                                  <N(n.2), senderID.1>)
-                                       ) @ #vk.9 )
-                                  case OutRule_Enc_Auth_Rekey_GroupKey_Init
-                                  by sorry
-                                next
-                                  case OutRule_Enc_Auth_Rekey_GroupKey_Init_repeat
-                                  by sorry
-                                next
-                                  case OutRule_Enc_Auth_Snd_M3_repeat
-                                  solve( In_Supp( <S(ctr_minus_1), ~ANonce>, ~senderThreadID,
-                                                  KDF(<'NULL', 'NULL', 'NULL'>)
-                                         )[no_precomp] ▶₁ #vr.7 )
-                                    case Receive_Clear_Message_Supp
-                                    solve( In_Auth( <<S(S('0')), ~SNonce>, 
-                                                     MIC(KDF(<~PMK, ~ANonce, ~SNonce>),
-                                                         <S(S('0')), ~SNonce>)
-                                                    >,
-                                                    ~authThreadID, KDF(<'NULL', 'NULL', 'NULL'>)
-                                           )[no_precomp] ▶₁ #vr.14 )
-                                      case Receive_Clear_Message_Auth
-                                      solve( !KU( MIC(KDF(<~PMK, ~ANonce, ~SNonce>),
-                                                      <S(S('0')), ~SNonce>)
-                                             ) @ #vk.17 )
-                                        case OutRule_Enc_Supp_Rcv_M1_Snd_M2
-                                        by sorry
-                                      next
-                                        case OutRule_Enc_Supp_Rcv_M1_Snd_M2_repeat
-                                        by contradiction
-                                           /* non-injective facts (#vr.7,#vr.22,#vr.3) */
-                                      next
-                                        case OutRule_Supp_Rcv_M1_Snd_M2
-                                        solve( !KU( ~SNonce ) @ #vk.16 )
-                                          case OutRule_Auth_Check_MIC_M2_Snd_M3_case_1
-                                          by sorry
-                                        next
-                                          case OutRule_Auth_Check_MIC_M2_Snd_M3_case_2
-                                          by sorry
-                                        next
-                                          case OutRule_Auth_Snd_M3_repeat
-                                          by sorry
-                                        next
-                                          case OutRule_Enc_Auth_Check_MIC_M2_Snd_M3_case_1
-                                          by sorry
-                                        next
-                                          case OutRule_Enc_Auth_Check_MIC_M2_Snd_M3_case_2
-                                          by sorry
-                                        next
-                                          case OutRule_Enc_Auth_Snd_M3_repeat
-                                          by sorry
-                                        next
-                                          case OutRule_Enc_Auth_WNM_Accept_Awake_Request
-                                          by sorry
-                                        next
-                                          case OutRule_Enc_Supp_Rcv_M1_Snd_M2_repeat
-                                          by contradiction
-                                             /* non-injective facts (#vr.7,#vr.24,#vr.3) */
-                                        next
-                                          case OutRule_Supp_Rcv_M1_Snd_M2
-                                          solve( !KU( ~ANonce ) @ #vk.16 )
-                                            case OutRule_Auth_Check_MIC_M2_Snd_M3_case_1
-                                            by sorry
-                                          next
-                                            case OutRule_Auth_Check_MIC_M2_Snd_M3_case_2
-                                            by sorry
-                                          next
-                                            case OutRule_Auth_Snd_M1
-                                            solve( AuthState( ~authThreadID,
-                                                              'PTK_CALC_NEGOTIATING3',
-                                                              <~authID, ~PMK, ~senderThreadID, 
-                                                               KDF(<'NULL', 'NULL', 'NULL'>), 
-                                                               ~ANonce, ~SNonce, S(ctr_minus_1)>
-                                                   ) ▶₀ #vr.17 )
-                                              case Auth_Check_MIC_M2_Snd_M3
-                                              solve( !KU( S(S(S('0'))) ) @ #vk.15 )
-                                                case OutRule_Auth_Check_MIC_M2_Snd_M3_case_1
-                                                by contradiction /* forbidden KD-fact */
-                                              next
-                                                case OutRule_Auth_Check_MIC_M2_Snd_M3_case_2
-                                                by contradiction /* forbidden KD-fact */
-                                              next
-                                                case OutRule_Auth_Rekey_GroupKey_Init
-                                                by contradiction /* forbidden KD-fact */
-                                              next
-                                                case OutRule_Auth_Rekey_GroupKey_Init_repeat
-                                                by contradiction /* forbidden KD-fact */
-                                              next
-                                                case OutRule_Auth_Snd_M1_case_1
-                                                by contradiction /* forbidden KD-fact */
-                                              next
-                                                case OutRule_Auth_Snd_M1_case_2
-                                                by contradiction /* forbidden KD-fact */
-                                              next
-                                                case OutRule_Auth_Snd_M1_case_3
-                                                by contradiction /* forbidden KD-fact */
-                                              next
-                                                case OutRule_Auth_Snd_M1_case_4
-                                                by contradiction /* forbidden KD-fact */
-                                              next
-                                                case OutRule_Auth_Snd_M1_repeat
-                                                by contradiction /* forbidden KD-fact */
-                                              next
-                                                case OutRule_Auth_Snd_M3_repeat
-                                                by contradiction /* forbidden KD-fact */
-                                              next
-                                                case OutRule_Enc_Auth_Check_MIC_M2_Snd_M3_case_1
-                                                by contradiction /* forbidden KD-fact */
-                                              next
-                                                case OutRule_Enc_Auth_Check_MIC_M2_Snd_M3_case_2
-                                                by contradiction /* forbidden KD-fact */
-                                              next
-                                                case OutRule_Enc_Auth_Rekey_GroupKey_Init
-                                                by contradiction /* forbidden KD-fact */
-                                              next
-                                                case OutRule_Enc_Auth_Rekey_GroupKey_Init_repeat
-                                                by contradiction /* forbidden KD-fact */
-                                              next
-                                                case OutRule_Enc_Auth_Snd_M1_case_1
-                                                by contradiction /* forbidden KD-fact */
-                                              next
-                                                case OutRule_Enc_Auth_Snd_M1_case_2
-                                                by contradiction /* forbidden KD-fact */
-                                              next
-                                                case OutRule_Enc_Auth_Snd_M1_case_3
-                                                by contradiction /* forbidden KD-fact */
-                                              next
-                                                case OutRule_Enc_Auth_Snd_M1_case_4
-                                                by contradiction /* forbidden KD-fact */
-                                              next
-                                                case OutRule_Enc_Auth_Snd_M1_repeat
-                                                by contradiction /* forbidden KD-fact */
-                                              next
-                                                case OutRule_Enc_Auth_Snd_M3_repeat
-                                                by contradiction /* forbidden KD-fact */
-                                              next
-                                                case OutRule_Enc_Supp_Install_Key_Snd_M4_case_1
-                                                by contradiction /* forbidden KD-fact */
-                                              next
-                                                case OutRule_Enc_Supp_Install_Key_Snd_M4_case_2
-                                                by contradiction /* forbidden KD-fact */
-                                              next
-                                                case OutRule_Enc_Supp_Rcv_M1_Snd_M2_case_1
-                                                by contradiction /* forbidden KD-fact */
-                                              next
-                                                case OutRule_Enc_Supp_Rcv_M1_Snd_M2_case_2
-                                                by contradiction /* forbidden KD-fact */
-                                              next
-                                                case OutRule_Enc_Supp_Rcv_M1_Snd_M2_case_3
-                                                by contradiction /* forbidden KD-fact */
-                                              next
-                                                case OutRule_Enc_Supp_Rcv_M1_Snd_M2_case_4
-                                                by contradiction /* forbidden KD-fact */
-                                              next
-                                                case OutRule_Enc_Supp_Rcv_M1_Snd_M2_repeat
-                                                by contradiction /* forbidden KD-fact */
-                                              next
-                                                case OutRule_Enc_Supp_Rekey_GroupKey
-                                                by contradiction /* forbidden KD-fact */
-                                              next
-                                                case OutRule_Supp_Install_Key_Snd_M4_case_1
-                                                by contradiction /* forbidden KD-fact */
-                                              next
-                                                case OutRule_Supp_Install_Key_Snd_M4_case_2
-                                                by contradiction /* forbidden KD-fact */
-                                              next
-                                                case OutRule_Supp_Rcv_M1_Snd_M2_case_1
-                                                by contradiction /* forbidden KD-fact */
-                                              next
-                                                case OutRule_Supp_Rcv_M1_Snd_M2_case_2
-                                                by contradiction /* forbidden KD-fact */
-                                              next
-                                                case OutRule_Supp_Rcv_M1_Snd_M2_case_3
-                                                by contradiction /* forbidden KD-fact */
-                                              next
-                                                case OutRule_Supp_Rcv_M1_Snd_M2_case_4
-                                                by contradiction /* forbidden KD-fact */
-                                              next
-                                                case OutRule_Supp_Rcv_M1_Snd_M2_repeat
-                                                by contradiction /* forbidden KD-fact */
-                                              next
-                                                case OutRule_Supp_Rekey_GroupKey
-                                                by contradiction /* forbidden KD-fact */
-                                              next
-                                                case c_S
-                                                solve( !KU( S(S('0')) ) @ #vk.16 )
+                        solve( !KU( MIC(KDF(<~PMK, ~ANonce, ~SNonce>),
+                                        <S(ctr_m3_minus_1), 
+                                         senc(<GTK(x), <N(n), authID1>, $newIndex>,
+                                              KDF(<~PMK, ~ANonce, ~SNonce>))
+                                        >)
+                               ) @ #vk.9 )
+                          case OutRule_Auth_Check_MIC_M2_Snd_M3_case_1
+                          solve( !KU( senc(<GTK(~x), <N(n), ~authID.1>, $index>,
+                                           KDF(<~PMK, ~ANonce, ~SNonce>))
+                                 ) @ #vk.9 )
+                            case OutRule_Auth_Check_MIC_M2_Snd_M3
+                            solve( In_Supp( <S(ctr_minus_1.2), ~ANonce>, ~senderThreadID,
+                                            KDF(<'NULL', 'NULL', 'NULL'>)
+                                   )[no_precomp] ▶₁ #vr.7 )
+                              case Receive_Clear_Message_Supp
+                              solve( !KU( ~ANonce ) @ #vk.12 )
+                                case OutRule_Auth_Check_MIC_M2_Snd_M3_case_1
+                                by sorry
+                              next
+                                case OutRule_Auth_Check_MIC_M2_Snd_M3_case_2
+                                by sorry
+                              next
+                                case OutRule_Auth_Snd_M1_case_1
+                                solve( In_Auth( <<S(ctr_minus_1), ~SNonce>, 
+                                                 MIC(KDF(<~PMK, ~ANonce, ~SNonce>),
+                                                     <S(ctr_minus_1), ~SNonce>)
+                                                >,
+                                                ~authThreadID, KDF(<'NULL', 'NULL', 'NULL'>)
+                                       )[no_precomp] ▶₁ #vr.14 )
+                                  case Receive_Clear_Message_Auth
+                                  solve( !KU( ~SNonce ) @ #vk.16 )
+                                    case OutRule_Auth_Check_MIC_M2_Snd_M3_case_1
+                                    by sorry
+                                  next
+                                    case OutRule_Auth_Check_MIC_M2_Snd_M3_case_2
+                                    by sorry
+                                  next
+                                    case OutRule_Auth_Snd_M3_repeat
+                                    by sorry
+                                  next
+                                    case OutRule_Enc_Auth_Check_MIC_M2_Snd_M3_case_1
+                                    by sorry
+                                  next
+                                    case OutRule_Enc_Auth_Check_MIC_M2_Snd_M3_case_2
+                                    by sorry
+                                  next
+                                    case OutRule_Enc_Auth_Snd_M3_repeat
+                                    by sorry
+                                  next
+                                    case OutRule_Enc_Auth_WNM_Accept_Awake_Request
+                                    by sorry
+                                  next
+                                    case OutRule_Enc_Supp_Rcv_M1_Snd_M2
+                                    by sorry
+                                  next
+                                    case OutRule_Enc_Supp_Rcv_M1_Snd_M2_repeat
+                                    by contradiction /* non-injective facts (#vr.7,#vr.23,#vr.3) */
+                                  next
+                                    case OutRule_Supp_Rcv_M1_Snd_M2
+                                    solve( !KU( MIC(KDF(<~PMK, ~ANonce, ~SNonce>),
+                                                    <S(ctr_minus_1), ~SNonce>)
+                                           ) @ #vk.17 )
+                                      case OutRule_Enc_Supp_Rcv_M1_Snd_M2_repeat
+                                      by contradiction
+                                         /* non-injective facts (#vr.7,#vr.26,#vr.3) */
+                                    next
+                                      case OutRule_Supp_Rcv_M1_Snd_M2
+                                      solve( AuthState( ~authThreadID, 'PTK_START',
+                                                        <~authID, ~PMK, ~senderThreadID, 
+                                                         KDF(<'NULL', 'NULL', 'NULL'>), ~ANonce, 
+                                                         oldSNonce, S(ctr_minus_1)>
+                                             ) ▶₀ #vr.14 )
+                                        case Auth_Snd_M1
+                                        solve( AuthState( ~authThreadID, 'PTK_CALC_NEGOTIATING3',
+                                                          <~authID, ~PMK, ~senderThreadID, 
+                                                           KDF(<'NULL', 'NULL', 'NULL'>), ~ANonce, 
+                                                           ~SNonce, S(ctr_minus_1)>
+                                               ) ▶₀ #vr.10 )
+                                          case Auth_Check_MIC_M2_Snd_M3
+                                          solve( !AuthGTKState( ~authID, stateIdentifier.1,
+                                                                installedGTKData.1,
+                                                                <GTK(~x.2), <N(n.1), ~authID>, 
+                                                                 $newIndex>,
+                                                                ~pointerGTKState.2
+                                                 )[no_precomp] ▶₁ #vr.10 )
+                                            case Auth_Create
+                                            solve( !AuthGTKState( ~authID, stateIdentifier,
+                                                                  installedGTKData,
+                                                                  <GTK(~x), <N(n), ~authID>, $index
+                                                                  >,
+                                                                  ~pointerGTKState.1
+                                                   )[no_precomp] ▶₁ #j.4 )
+                                              case Auth_Create
+                                              solve( ReceiverGTK( ~senderThreadID, ~oldGTKID, ~PMK,
+                                                                  GTK('NULL'), <N('NULL'), 'NULL'>,
+                                                                  'NULL'
+                                                     ) ▶₁ #j.3 )
+                                                case Auth_Associate_With_Supp
+                                                solve( !KU( S(S(S('0'))) ) @ #vk.15 )
                                                   case OutRule_Auth_Check_MIC_M2_Snd_M3_case_1
                                                   by contradiction /* forbidden KD-fact */
                                                 next
@@ -4251,6 +4076,18 @@ solve( !KU( KDF(<~PMK, ANonce, ~SNonce>) ) @ #vk )
                                                   by contradiction /* forbidden KD-fact */
                                                 next
                                                   case OutRule_Auth_Rekey_GroupKey_Init_repeat
+                                                  by contradiction /* forbidden KD-fact */
+                                                next
+                                                  case OutRule_Auth_Snd_M1_case_1
+                                                  by contradiction /* forbidden KD-fact */
+                                                next
+                                                  case OutRule_Auth_Snd_M1_case_2
+                                                  by contradiction /* forbidden KD-fact */
+                                                next
+                                                  case OutRule_Auth_Snd_M1_case_3
+                                                  by contradiction /* forbidden KD-fact */
+                                                next
+                                                  case OutRule_Auth_Snd_M1_case_4
                                                   by contradiction /* forbidden KD-fact */
                                                 next
                                                   case OutRule_Auth_Snd_M1_repeat
@@ -4269,6 +4106,18 @@ solve( !KU( KDF(<~PMK, ANonce, ~SNonce>) ) @ #vk )
                                                   by contradiction /* forbidden KD-fact */
                                                 next
                                                   case OutRule_Enc_Auth_Rekey_GroupKey_Init_repeat
+                                                  by contradiction /* forbidden KD-fact */
+                                                next
+                                                  case OutRule_Enc_Auth_Snd_M1_case_1
+                                                  by contradiction /* forbidden KD-fact */
+                                                next
+                                                  case OutRule_Enc_Auth_Snd_M1_case_2
+                                                  by contradiction /* forbidden KD-fact */
+                                                next
+                                                  case OutRule_Enc_Auth_Snd_M1_case_3
+                                                  by contradiction /* forbidden KD-fact */
+                                                next
+                                                  case OutRule_Enc_Auth_Snd_M1_case_4
                                                   by contradiction /* forbidden KD-fact */
                                                 next
                                                   case OutRule_Enc_Auth_Snd_M1_repeat
@@ -4326,7 +4175,43 @@ solve( !KU( KDF(<~PMK, ANonce, ~SNonce>) ) @ #vk )
                                                   by contradiction /* forbidden KD-fact */
                                                 next
                                                   case c_S
-                                                  solve( !KU( S('0') ) @ #vk.17 )
+                                                  solve( !KU( S(S('0')) ) @ #vk.16 )
+                                                    case OutRule_Auth_Check_MIC_M2_Snd_M3_case_1
+                                                    by contradiction /* forbidden KD-fact */
+                                                  next
+                                                    case OutRule_Auth_Check_MIC_M2_Snd_M3_case_2
+                                                    by contradiction /* forbidden KD-fact */
+                                                  next
+                                                    case OutRule_Auth_Rekey_GroupKey_Init
+                                                    by contradiction /* forbidden KD-fact */
+                                                  next
+                                                    case OutRule_Auth_Rekey_GroupKey_Init_repeat
+                                                    by contradiction /* forbidden KD-fact */
+                                                  next
+                                                    case OutRule_Auth_Snd_M1_repeat
+                                                    by contradiction /* forbidden KD-fact */
+                                                  next
+                                                    case OutRule_Auth_Snd_M3_repeat
+                                                    by contradiction /* forbidden KD-fact */
+                                                  next
+                                                    case OutRule_Enc_Auth_Check_MIC_M2_Snd_M3_case_1
+                                                    by contradiction /* forbidden KD-fact */
+                                                  next
+                                                    case OutRule_Enc_Auth_Check_MIC_M2_Snd_M3_case_2
+                                                    by contradiction /* forbidden KD-fact */
+                                                  next
+                                                    case OutRule_Enc_Auth_Rekey_GroupKey_Init
+                                                    by contradiction /* forbidden KD-fact */
+                                                  next
+                                                    case OutRule_Enc_Auth_Rekey_GroupKey_Init_repeat
+                                                    by contradiction /* forbidden KD-fact */
+                                                  next
+                                                    case OutRule_Enc_Auth_Snd_M1_repeat
+                                                    by contradiction /* forbidden KD-fact */
+                                                  next
+                                                    case OutRule_Enc_Auth_Snd_M3_repeat
+                                                    by contradiction /* forbidden KD-fact */
+                                                  next
                                                     case OutRule_Enc_Supp_Install_Key_Snd_M4_case_1
                                                     by contradiction /* forbidden KD-fact */
                                                   next
@@ -4376,93 +4261,168 @@ solve( !KU( KDF(<~PMK, ANonce, ~SNonce>) ) @ #vk )
                                                     by contradiction /* forbidden KD-fact */
                                                   next
                                                     case c_S
-                                                    solve( !SuppReceiverPTK( ~oldPtkID.1,
-                                                                             ~senderThreadID,
-                                                                             ~senderID,
-                                                                             KDF(<~PMK, ~ANonce, 
-                                                                                  ~SNonce>),
-                                                                             ~pointerOldRcvPTK.1
-                                                           )[no_precomp] ▶₃ #vr.4 )
-                                                      case Supp_Install_PTK_case_1
-                                                      solve( !SuppReceiverPTK( ~ptkID.2,
+                                                    solve( !KU( S('0') ) @ #vk.17 )
+                                                      case OutRule_Enc_Supp_Install_Key_Snd_M4_case_1
+                                                      by contradiction /* forbidden KD-fact */
+                                                    next
+                                                      case OutRule_Enc_Supp_Install_Key_Snd_M4_case_2
+                                                      by contradiction /* forbidden KD-fact */
+                                                    next
+                                                      case OutRule_Enc_Supp_Rcv_M1_Snd_M2_case_1
+                                                      by contradiction /* forbidden KD-fact */
+                                                    next
+                                                      case OutRule_Enc_Supp_Rcv_M1_Snd_M2_case_2
+                                                      by contradiction /* forbidden KD-fact */
+                                                    next
+                                                      case OutRule_Enc_Supp_Rcv_M1_Snd_M2_case_3
+                                                      by contradiction /* forbidden KD-fact */
+                                                    next
+                                                      case OutRule_Enc_Supp_Rcv_M1_Snd_M2_case_4
+                                                      by contradiction /* forbidden KD-fact */
+                                                    next
+                                                      case OutRule_Enc_Supp_Rcv_M1_Snd_M2_repeat
+                                                      by contradiction /* forbidden KD-fact */
+                                                    next
+                                                      case OutRule_Enc_Supp_Rekey_GroupKey
+                                                      by contradiction /* forbidden KD-fact */
+                                                    next
+                                                      case OutRule_Supp_Install_Key_Snd_M4_case_1
+                                                      by contradiction /* forbidden KD-fact */
+                                                    next
+                                                      case OutRule_Supp_Install_Key_Snd_M4_case_2
+                                                      by contradiction /* forbidden KD-fact */
+                                                    next
+                                                      case OutRule_Supp_Rcv_M1_Snd_M2_case_1
+                                                      by contradiction /* forbidden KD-fact */
+                                                    next
+                                                      case OutRule_Supp_Rcv_M1_Snd_M2_case_2
+                                                      by contradiction /* forbidden KD-fact */
+                                                    next
+                                                      case OutRule_Supp_Rcv_M1_Snd_M2_case_3
+                                                      by contradiction /* forbidden KD-fact */
+                                                    next
+                                                      case OutRule_Supp_Rcv_M1_Snd_M2_case_4
+                                                      by contradiction /* forbidden KD-fact */
+                                                    next
+                                                      case OutRule_Supp_Rcv_M1_Snd_M2_repeat
+                                                      by contradiction /* forbidden KD-fact */
+                                                    next
+                                                      case OutRule_Supp_Rekey_GroupKey
+                                                      by contradiction /* forbidden KD-fact */
+                                                    next
+                                                      case c_S
+                                                      solve( !SuppReceiverPTK( ~oldReceiverPtkID,
                                                                                ~senderThreadID,
-                                                                               ~receiverID,
-                                                                               KDF(<~PMK, ~ANonce, 
-                                                                                    ~SNonce>),
-                                                                               ~pointerPTK
-                                                             )[no_precomp] ▶₁ #vr.9 )
-                                                        case Supp_Install_PTK_case_1
-                                                        solve( !AuthGTKState( ~authID,
-                                                                              stateIdentifier,
-                                                                              installedGTKData,
-                                                                              <GTK(~x), 
-                                                                               <N(n), ~authID>, 
-                                                                               $newIndex>,
-                                                                              ~pointerGTKState.1
-                                                               )[no_precomp] ▶₁ #vr.11 )
-                                                          case Auth_Create
-                                                          solve( !AuthGTKState( ~authID,
-                                                                                stateIdentifier,
-                                                                                installedGTKData,
-                                                                                <GTK(~x.1), 
-                                                                                 <N(n), ~authID>, 
-                                                                                 $newIndex>,
-                                                                                ~pointerGTKState.1
-                                                                 )[no_precomp] ▶₁ #vr.17 )
-                                                            case Auth_Create
-                                                            solve( AuthSenderPTK( ~ptkID.2,
-                                                                                  ~authThreadID,
-                                                                                  ~senderID,
-                                                                                  KDF(<~PMK, 
-                                                                                       ~ANonce, 
-                                                                                       ~SNonce>),
-                                                                                  <N(n), ~senderID>
-                                                                   ) ▶₁ #vr.16 )
-                                                              case Auth_Rcv_M4_Install_Key
-                                                              solve( AuthState( ~authThreadID,
-                                                                                'PTK_CALC_NEGOTIATING3',
-                                                                                <~authID, ~PMK, 
-                                                                                 ~senderThreadID, 
-                                                                                 KDF(<'NULL', 
-                                                                                      'NULL', 'NULL'
-                                                                                     >), 
-                                                                                 ~ANonce, ~SNonce, 
-                                                                                 S(ctr_minus_1)>
-                                                                     ) ▶₀ #vr.27 )
-                                                                case Auth_Check_MIC_M2_Snd_M3
-                                                                solve( In_Auth( <S(ctr_m4_minus_1), 
-                                                                                 MIC(KDF(<~PMK, 
-                                                                                          ~ANonce, 
-                                                                                          ~SNonce>),
-                                                                                     S(ctr_m4_minus_1))
-                                                                                >,
-                                                                                ~authThreadID,
-                                                                                KDF(<'NULL', 
-                                                                                     'NULL', 'NULL'
-                                                                                    >)
-                                                                       )[-, no_precomp] ▶₂ #vr.26 )
-                                                                  case Receive_Clear_Message_Auth
-                                                                  solve( !KU( MIC(KDF(<~PMK, 
-                                                                                       ~ANonce, 
-                                                                                       ~SNonce>),
-                                                                                  S(ctr_m4_minus_1))
-                                                                         ) @ #vk.21 )
-                                                                    case OutRule_Enc_Supp_Install_Key_Snd_M4_case_1
-                                                                    by sorry
-                                                                  next
-                                                                    case OutRule_Enc_Supp_Install_Key_Snd_M4_case_2
-                                                                    by sorry
-                                                                  next
-                                                                    case OutRule_Enc_Supp_Rekey_GroupKey
-                                                                    by sorry
-                                                                  next
-                                                                    case OutRule_Supp_Install_Key_Snd_M4_case_1
-                                                                    solve( !UsedCounterInPTKHandshake( ~authThreadID,
-                                                                                                       ~ANonce,
-                                                                                                       S(S(S('0')))
-                                                                           )[-] ▶₃ #vr.26 )
-                                                                      case Auth_Check_MIC_M2_Snd_M3
-                                                                      solve( !AuthReceiverPTK( ~oldPTKID,
+                                                                               ~senderID,
+                                                                               KDF(<'NULL', 'NULL', 
+                                                                                    'NULL'>),
+                                                                               ~pointerOldRcvPTK
+                                                             )[no_precomp] ▶₅ #i )
+                                                        case Auth_Associate_With_Supp
+                                                        solve( !SuppReceiverPTK( ~oldReceiverPtkID.1,
+                                                                                 ~senderThreadID,
+                                                                                 ~senderID,
+                                                                                 KDF(<~PMK, 
+                                                                                      ~ANonce, 
+                                                                                      ~SNonce>),
+                                                                                 ~pointerOldRcvPTK.1
+                                                               )[no_precomp] ▶₅ #vr.4 )
+                                                          case Supp_Install_PTK_case_1
+                                                          solve( !SuppReceiverPTK( ~ptkID.1,
+                                                                                   ~senderThreadID,
+                                                                                   ~receiverID,
+                                                                                   KDF(<~PMK, 
+                                                                                        ~ANonce, 
+                                                                                        ~SNonce>),
+                                                                                   ~pointerPTK
+                                                                 )[no_precomp] ▶₁ #vr.8 )
+                                                            case Supp_Install_PTK_case_1
+                                                            solve( ReceiverGTK( ~senderThreadID,
+                                                                                ~oldGTKID, ~PMK,
+                                                                                GTK(~x),
+                                                                                <N('1'), ~authID>,
+                                                                                '4'
+                                                                   ) ▶₁ #vr.5 )
+                                                              case Supp_Install_Key_Snd_M4_case_1
+                                                              solve( In_Supp( <
+                                                                               <S(ctr_m3_minus_1), 
+                                                                                senc(<GTK(~x), 
+                                                                                      <N('1'), 
+                                                                                       ~authID>, 
+                                                                                      '4'>,
+                                                                                     KDF(<~PMK, 
+                                                                                          ANonce.1, 
+                                                                                          ~SNonce.1
+                                                                                         >))
+                                                                               >, 
+                                                                               MIC(KDF(<~PMK, 
+                                                                                        ANonce.1, 
+                                                                                        ~SNonce.1>),
+                                                                                   <
+                                                                                    S(ctr_m3_minus_1), 
+                                                                                    senc(<GTK(~x), 
+                                                                                          <N('1'), 
+                                                                                           ~authID
+                                                                                          >, 
+                                                                                          '4'>,
+                                                                                         KDF(<~PMK, 
+                                                                                              ANonce.1, 
+                                                                                              ~SNonce.1
+                                                                                             >))
+                                                                                   >)
+                                                                              >,
+                                                                              ~senderThreadID,
+                                                                              KDF(<PMK1, ANonce1, 
+                                                                                   SNonce1>)
+                                                                     )[no_precomp] ▶₁ #vr.26 )
+                                                                case Receive_Clear_Message_Supp
+                                                                solve( !KU( MIC(KDF(<~PMK, 
+                                                                                     ANonce.1, 
+                                                                                     ~SNonce.1>),
+                                                                                <S(ctr_m3_minus_1), 
+                                                                                 senc(<GTK(~x), 
+                                                                                       <N('1'), 
+                                                                                        ~authID>, 
+                                                                                       '4'>,
+                                                                                      KDF(<~PMK, 
+                                                                                           ANonce.1, 
+                                                                                           ~SNonce.1
+                                                                                          >))
+                                                                                >)
+                                                                       ) @ #vk.23 )
+                                                                  case OutRule_Auth_Check_MIC_M2_Snd_M3_case_1
+                                                                  solve( SuppState( ~senderThreadID,
+                                                                                    'PTK_START',
+                                                                                    <~receiverID, 
+                                                                                     ~PMK, 
+                                                                                     ~authThreadID, 
+                                                                                     KDF(<'NULL', 
+                                                                                          'NULL', 
+                                                                                          'NULL'>), 
+                                                                                     <GTK(y), 
+                                                                                      <N(m), authID2
+                                                                                      >, 
+                                                                                      $oldIndex>, 
+                                                                                     ~ANonce.1, 
+                                                                                     ~SNonce.1, 
+                                                                                     S(ctr_minus_1.1)
+                                                                                    >
+                                                                         ) ▶₀ #vr.26 )
+                                                                    case Supp_Rcv_M1_Snd_M2
+                                                                    solve( AuthSenderPTK( ~ptkID.1,
+                                                                                          ~authThreadID,
+                                                                                          ~senderID,
+                                                                                          KDF(<
+                                                                                               ~PMK, 
+                                                                                               ~ANonce, 
+                                                                                               ~SNonce
+                                                                                              >),
+                                                                                          <N(n), 
+                                                                                           ~senderID, 
+                                                                                           'DF'>
+                                                                           ) ▶₁ #vr.9 )
+                                                                      case Auth_Rcv_M4_Install_Key
+                                                                      solve( !AuthReceiverPTK( ~oldReceiverPtkID.1,
                                                                                                ~authThreadID,
                                                                                                ~authID,
                                                                                                KDF(<
@@ -4471,305 +4431,386 @@ solve( !KU( KDF(<~PMK, ANonce, ~SNonce>) ) @ #vk )
                                                                                                     'NULL'
                                                                                                    >),
                                                                                                ~oldPointerPTK
-                                                                             )[no_precomp] ▶₁ #vr.26 )
+                                                                             )[no_precomp] ▶₁ #vr.25 )
                                                                         case Auth_Associate_With_Supp
-                                                                        solve( ReceiverGTK( ~senderThreadID,
-                                                                                            ~oldGTKID,
-                                                                                            ~PMK,
-                                                                                            GTK(~x),
-                                                                                            <
-                                                                                             N('1'), 
-                                                                                             ~authID
-                                                                                            >,
-                                                                                            '4'
-                                                                               ) ▶₁ #vr.5 )
-                                                                          case Supp_Install_Key_Snd_M4_case_1
-                                                                          solve( SuppState( ~senderThreadID,
-                                                                                            'PTK_START',
-                                                                                            <
-                                                                                             ~receiverID, 
-                                                                                             ~PMK, 
-                                                                                             ~authThreadID, 
-                                                                                             KDF(<
-                                                                                                  PMK1, 
-                                                                                                  ANonce1, 
-                                                                                                  SNonce1
-                                                                                                 >), 
-                                                                                             <
-                                                                                              GTK(y), 
+                                                                        solve( !AuthGTKState( ~authID,
+                                                                                              stateIdentifier,
+                                                                                              installedGTKData,
                                                                                               <
-                                                                                               N(m), 
-                                                                                               authID2
-                                                                                              >, 
-                                                                                              $oldIndex
-                                                                                             >, 
-                                                                                             ANonce.1, 
-                                                                                             ~SNonce.1, 
+                                                                                               GTK(~x.1), 
+                                                                                               <
+                                                                                                N(n), 
+                                                                                                ~authID
+                                                                                               >, 
+                                                                                               $index
+                                                                                              >,
+                                                                                              ~pointerGTKState.1
+                                                                               )[no_precomp] ▶₁ #vr.26 )
+                                                                          case Auth_Create
+                                                                          solve( AuthState( ~authThreadID,
+                                                                                            'PTK_CALC_NEGOTIATING3',
+                                                                                            <
+                                                                                             ~authID, 
+                                                                                             ~PMK, 
+                                                                                             ~senderThreadID, 
+                                                                                             KDF(<
+                                                                                                  'NULL', 
+                                                                                                  'NULL', 
+                                                                                                  'NULL'
+                                                                                                 >), 
+                                                                                             ~ANonce, 
+                                                                                             ~SNonce, 
                                                                                              S(ctr_minus_1)
                                                                                             >
-                                                                                 ) ▶₀ #vr.31 )
-                                                                            case Supp_Rcv_M1_Snd_M2_case_1
-                                                                            SOLVED // trace found
+                                                                                 ) ▶₀ #vr.26 )
+                                                                            case Auth_Check_MIC_M2_Snd_M3
+                                                                            solve( In_Auth( <
+                                                                                             S(ctr_m4_minus_1), 
+                                                                                             MIC(KDF(<
+                                                                                                      ~PMK, 
+                                                                                                      ~ANonce, 
+                                                                                                      ~SNonce
+                                                                                                     >),
+                                                                                                 S(ctr_m4_minus_1))
+                                                                                            >,
+                                                                                            ~authThreadID,
+                                                                                            KDF(<
+                                                                                                 'NULL', 
+                                                                                                 'NULL', 
+                                                                                                 'NULL'
+                                                                                                >)
+                                                                                   )[-,
+                                                                                     no_precomp] ▶₂ #vr.25 )
+                                                                              case Receive_Clear_Message_Auth
+                                                                              solve( !KU( MIC(KDF(<
+                                                                                                   ~PMK, 
+                                                                                                   ~ANonce, 
+                                                                                                   ~SNonce
+                                                                                                  >),
+                                                                                              S(ctr_m4_minus_1))
+                                                                                     ) @ #vk.21 )
+                                                                                case OutRule_Enc_Supp_Install_Key_Snd_M4_case_1
+                                                                                by sorry
+                                                                              next
+                                                                                case OutRule_Enc_Supp_Install_Key_Snd_M4_case_2
+                                                                                by sorry
+                                                                              next
+                                                                                case OutRule_Enc_Supp_Rekey_GroupKey
+                                                                                by sorry
+                                                                              next
+                                                                                case OutRule_Supp_Install_Key_Snd_M4_case_1
+                                                                                solve( !UsedCounterInPTKHandshake( ~authThreadID,
+                                                                                                                   ~ANonce,
+                                                                                                                   S(S(S('0')))
+                                                                                       )[-] ▶₃ #vr.25 )
+                                                                                  case Auth_Check_MIC_M2_Snd_M3
+                                                                                  SOLVED // trace found
+                                                                                next
+                                                                                  case Auth_Snd_M1_repeat
+                                                                                  by contradiction
+                                                                                     /*
+                                                                                     non-injective facts (#j.5,#vr.29,#vr.14)
+                                                                                     */
+                                                                                next
+                                                                                  case Auth_Snd_M3_repeat
+                                                                                  by sorry
+                                                                                qed
+                                                                              next
+                                                                                case OutRule_Supp_Install_Key_Snd_M4_case_2
+                                                                                by sorry
+                                                                              next
+                                                                                case OutRule_Supp_Rekey_GroupKey
+                                                                                by sorry
+                                                                              next
+                                                                                case c_MIC
+                                                                                by contradiction
+                                                                                   /* cyclic */
+                                                                              qed
+                                                                            next
+                                                                              case Receive_Encrypted_Message_Auth
+                                                                              by contradiction
+                                                                                 /* from formulas */
+                                                                            qed
                                                                           next
-                                                                            case Supp_Rcv_M1_Snd_M2_case_2
-                                                                            by sorry
-                                                                          next
-                                                                            case Supp_Rcv_M1_Snd_M2_case_3
-                                                                            by sorry
-                                                                          next
-                                                                            case Supp_Rcv_M1_Snd_M2_case_4
-                                                                            by sorry
-                                                                          next
-                                                                            case Supp_Rcv_M1_Snd_M2_repeat
+                                                                            case Auth_Snd_M3_repeat
                                                                             by sorry
                                                                           qed
                                                                         next
-                                                                          case Supp_Install_Key_Snd_M4_case_2
+                                                                          case Auth_Install_GroupKey_case_1
                                                                           by sorry
                                                                         next
-                                                                          case Supp_Rekey_GroupKey
+                                                                          case Auth_Install_GroupKey_case_2
                                                                           by sorry
                                                                         next
-                                                                          case Supp_WNM_Receive_Awake_Accept
+                                                                          case Auth_Start_GroupKey_Rekey_4
                                                                           by sorry
                                                                         next
-                                                                          case receiveGTKEncryptedPayload
+                                                                          case Auth_Start_GroupKey_Rekey_5
+                                                                          by sorry
+                                                                        next
+                                                                          case sendGTKEncryptedPayload_1
+                                                                          by sorry
+                                                                        next
+                                                                          case sendGTKEncryptedPayload_2
                                                                           by sorry
                                                                         qed
                                                                       qed
                                                                     next
-                                                                      case Auth_Snd_M1_repeat
-                                                                      by contradiction
-                                                                         /*
-                                                                         non-injective facts (#j.4,#vr.30,#vr.14)
-                                                                         */
+                                                                      case OutRule_Enc_Auth_Check_MIC_M2_Snd_M3_case_1
+                                                                      by sorry
                                                                     next
-                                                                      case Auth_Snd_M3_repeat
+                                                                      case OutRule_Enc_Auth_Check_MIC_M2_Snd_M3_case_2
+                                                                      by sorry
+                                                                    next
+                                                                      case OutRule_Enc_Auth_Rekey_GroupKey_Init
+                                                                      by sorry
+                                                                    next
+                                                                      case OutRule_Enc_Auth_Rekey_GroupKey_Init_repeat
+                                                                      by sorry
+                                                                    next
+                                                                      case OutRule_Enc_Auth_Snd_M1_case_1
+                                                                      by sorry
+                                                                    next
+                                                                      case OutRule_Enc_Auth_Snd_M1_case_2
+                                                                      by sorry
+                                                                    next
+                                                                      case OutRule_Enc_Auth_Snd_M1_case_3
+                                                                      by sorry
+                                                                    next
+                                                                      case OutRule_Enc_Auth_Snd_M1_case_4
+                                                                      by sorry
+                                                                    next
+                                                                      case OutRule_Enc_Auth_Snd_M1_case_5
+                                                                      by sorry
+                                                                    next
+                                                                      case OutRule_Enc_Auth_Snd_M1_case_6
+                                                                      by sorry
+                                                                    next
+                                                                      case OutRule_Enc_Auth_Snd_M1_case_7
+                                                                      by sorry
+                                                                    next
+                                                                      case OutRule_Enc_Auth_Snd_M1_repeat
+                                                                      by sorry
+                                                                    next
+                                                                      case OutRule_Enc_Auth_Snd_M3_repeat
+                                                                      by sorry
+                                                                    next
+                                                                      case sendPTKEncryptedPayload_Auth
                                                                       by sorry
                                                                     qed
                                                                   next
-                                                                    case OutRule_Supp_Install_Key_Snd_M4_case_2
+                                                                    case Supp_Rcv_M1_Snd_M2_repeat
                                                                     by sorry
-                                                                  next
-                                                                    case OutRule_Supp_Rekey_GroupKey
-                                                                    by sorry
-                                                                  next
-                                                                    case c_MIC
-                                                                    by contradiction /* cyclic */
                                                                   qed
                                                                 next
-                                                                  case Receive_Encrypted_Message_Auth
-                                                                  by contradiction
-                                                                     /* from formulas */
+                                                                  case OutRule_Auth_Check_MIC_M2_Snd_M3_case_2
+                                                                  by sorry
+                                                                next
+                                                                  case OutRule_Auth_Rekey_GroupKey_Init
+                                                                  by sorry
+                                                                next
+                                                                  case OutRule_Auth_Rekey_GroupKey_Init_repeat
+                                                                  by sorry
+                                                                next
+                                                                  case OutRule_Auth_Snd_M3_repeat
+                                                                  by sorry
+                                                                next
+                                                                  case OutRule_Enc_Auth_Check_MIC_M2_Snd_M3_case_1
+                                                                  by sorry
+                                                                next
+                                                                  case OutRule_Enc_Auth_Check_MIC_M2_Snd_M3_case_2
+                                                                  by sorry
+                                                                next
+                                                                  case OutRule_Enc_Auth_Rekey_GroupKey_Init
+                                                                  by sorry
+                                                                next
+                                                                  case OutRule_Enc_Auth_Rekey_GroupKey_Init_repeat
+                                                                  by sorry
+                                                                next
+                                                                  case OutRule_Enc_Auth_Snd_M3_repeat
+                                                                  by sorry
+                                                                next
+                                                                  case c_MIC
+                                                                  by sorry
                                                                 qed
                                                               next
-                                                                case Auth_Snd_M3_repeat
+                                                                case Receive_Encrypted_Message_Supp
                                                                 by sorry
                                                               qed
                                                             next
-                                                              case OutRule_Enc_Auth_Check_MIC_M2_Snd_M3_case_1
+                                                              case Supp_Install_Key_Snd_M4_case_2
                                                               by sorry
                                                             next
-                                                              case OutRule_Enc_Auth_Check_MIC_M2_Snd_M3_case_2
+                                                              case Supp_Rekey_GroupKey
                                                               by sorry
                                                             next
-                                                              case OutRule_Enc_Auth_Rekey_GroupKey_Init
+                                                              case Supp_WNM_Receive_Awake_Accept
                                                               by sorry
                                                             next
-                                                              case OutRule_Enc_Auth_Rekey_GroupKey_Init_repeat
-                                                              by sorry
-                                                            next
-                                                              case OutRule_Enc_Auth_Snd_M1_case_1
-                                                              by sorry
-                                                            next
-                                                              case OutRule_Enc_Auth_Snd_M1_case_2
-                                                              by sorry
-                                                            next
-                                                              case OutRule_Enc_Auth_Snd_M1_case_3
-                                                              by sorry
-                                                            next
-                                                              case OutRule_Enc_Auth_Snd_M1_case_4
-                                                              by sorry
-                                                            next
-                                                              case OutRule_Enc_Auth_Snd_M1_case_5
-                                                              by sorry
-                                                            next
-                                                              case OutRule_Enc_Auth_Snd_M1_case_6
-                                                              by sorry
-                                                            next
-                                                              case OutRule_Enc_Auth_Snd_M1_case_7
-                                                              by sorry
-                                                            next
-                                                              case OutRule_Enc_Auth_Snd_M1_repeat
-                                                              by sorry
-                                                            next
-                                                              case OutRule_Enc_Auth_Snd_M3_repeat
-                                                              by sorry
-                                                            next
-                                                              case OutRule_Enc_Auth_WNM_Accept_Awake_Request
-                                                              by sorry
-                                                            next
-                                                              case OutRule_Enc_Auth_WNM_Accept_Sleep_Request
-                                                              by sorry
-                                                            next
-                                                              case sendPTKEncryptedPayload_Auth
+                                                              case receiveGTKEncryptedPayload
                                                               by sorry
                                                             qed
                                                           next
-                                                            case Auth_Install_GroupKey_case_1
-                                                            by sorry
-                                                          next
-                                                            case Auth_Install_GroupKey_case_2
-                                                            by sorry
-                                                          next
-                                                            case Auth_Start_GroupKey_Rekey_4
-                                                            by sorry
-                                                          next
-                                                            case Auth_Start_GroupKey_Rekey_5
-                                                            by sorry
-                                                          next
-                                                            case sendGTKEncryptedPayload_1
-                                                            by sorry
-                                                          next
-                                                            case sendGTKEncryptedPayload_2
+                                                            case Supp_Install_PTK_case_2
                                                             by sorry
                                                           qed
                                                         next
-                                                          case Auth_Install_GroupKey_case_1
-                                                          by sorry
-                                                        next
-                                                          case Auth_Install_GroupKey_case_2
-                                                          by sorry
-                                                        next
-                                                          case Auth_Start_GroupKey_Rekey_4
-                                                          by sorry
-                                                        next
-                                                          case Auth_Start_GroupKey_Rekey_5
-                                                          by sorry
-                                                        next
-                                                          case sendGTKEncryptedPayload_1
-                                                          by sorry
-                                                        next
-                                                          case sendGTKEncryptedPayload_2
+                                                          case Supp_Install_PTK_case_2
                                                           by sorry
                                                         qed
-                                                      next
-                                                        case Supp_Install_PTK_case_2
-                                                        by sorry
                                                       qed
-                                                    next
-                                                      case Supp_Install_PTK_case_2
-                                                      by sorry
                                                     qed
                                                   qed
                                                 qed
+                                              next
+                                                case Supp_Install_Key_Snd_M4_case_1
+                                                by sorry
+                                              next
+                                                case Supp_Install_Key_Snd_M4_case_2
+                                                by sorry
+                                              next
+                                                case Supp_Rekey_GroupKey
+                                                by sorry
+                                              next
+                                                case Supp_WNM_Receive_Awake_Accept
+                                                by sorry
+                                              next
+                                                case receiveGTKEncryptedPayload
+                                                by contradiction /* from formulas */
                                               qed
                                             next
-                                              case Auth_Snd_M3_repeat
-                                              by sorry
+                                              case Auth_Install_GroupKey_case_1
+                                              by contradiction /* from formulas */
+                                            next
+                                              case Auth_Install_GroupKey_case_2
+                                              by contradiction /* from formulas */
+                                            next
+                                              case Auth_Start_GroupKey_Rekey_4
+                                              by contradiction /* from formulas */
+                                            next
+                                              case Auth_Start_GroupKey_Rekey_5
+                                              by contradiction /* from formulas */
+                                            next
+                                              case sendGTKEncryptedPayload_1
+                                              by contradiction /* from formulas */
+                                            next
+                                              case sendGTKEncryptedPayload_2
+                                              by contradiction /* from formulas */
                                             qed
                                           next
-                                            case OutRule_Auth_Snd_M1_repeat
-                                            by contradiction
-                                               /* non-injective facts (#j.4,#vr.25,#vr.14) */
-                                          next
-                                            case OutRule_Auth_Snd_M3_repeat
+                                            case Auth_Install_GroupKey_case_1
                                             by sorry
                                           next
-                                            case OutRule_Enc_Auth_Check_MIC_M2_Snd_M3_case_1
+                                            case Auth_Install_GroupKey_case_2
                                             by sorry
                                           next
-                                            case OutRule_Enc_Auth_Check_MIC_M2_Snd_M3_case_2
+                                            case Auth_Start_GroupKey_Rekey_4
                                             by sorry
                                           next
-                                            case OutRule_Enc_Auth_Snd_M1
+                                            case Auth_Start_GroupKey_Rekey_5
                                             by sorry
                                           next
-                                            case OutRule_Enc_Auth_Snd_M1_repeat
-                                            by contradiction
-                                               /* non-injective facts (#j.4,#vr.26,#vr.14) */
-                                          next
-                                            case OutRule_Enc_Auth_Snd_M3_repeat
+                                            case sendGTKEncryptedPayload_1
                                             by sorry
                                           next
-                                            case OutRule_Enc_Auth_WNM_Accept_Awake_Request
+                                            case sendGTKEncryptedPayload_2
                                             by sorry
                                           qed
                                         next
-                                          case OutRule_Supp_Rcv_M1_Snd_M2_repeat
-                                          by contradiction
-                                             /* non-injective facts (#vr.7,#vr.23,#vr.3) */
+                                          case Auth_Snd_M3_repeat
+                                          by sorry
                                         qed
                                       next
-                                        case OutRule_Supp_Rcv_M1_Snd_M2_repeat
-                                        by contradiction
-                                           /* non-injective facts (#vr.7,#vr.21,#vr.3) */
-                                      next
-                                        case c_MIC
-                                        by contradiction /* cyclic */
+                                        case Auth_Snd_M1_repeat
+                                        by sorry
                                       qed
                                     next
-                                      case Receive_Encrypted_Message_Auth
-                                      by contradiction /* from formulas */
+                                      case OutRule_Supp_Rcv_M1_Snd_M2_repeat
+                                      by contradiction
+                                         /* non-injective facts (#vr.7,#vr.25,#vr.3) */
+                                    next
+                                      case c_MIC
+                                      by contradiction /* cyclic */
                                     qed
                                   next
-                                    case Receive_Encrypted_Message_Supp
-                                    by contradiction /* from formulas */
+                                    case OutRule_Supp_Rcv_M1_Snd_M2_repeat
+                                    by contradiction /* non-injective facts (#vr.7,#vr.22,#vr.3) */
                                   qed
                                 next
-                                  case c_snenc
-                                  by contradiction /* cyclic */
+                                  case Receive_Encrypted_Message_Auth
+                                  by contradiction /* from formulas */
                                 qed
                               next
-                                case OutRule_Auth_Rekey_GroupKey_Init
+                                case OutRule_Auth_Snd_M1_case_2
                                 by sorry
                               next
-                                case OutRule_Auth_Rekey_GroupKey_Init_repeat
+                                case OutRule_Auth_Snd_M1_case_3
+                                by sorry
+                              next
+                                case OutRule_Auth_Snd_M1_case_4
+                                by sorry
+                              next
+                                case OutRule_Auth_Snd_M1_case_5
+                                by sorry
+                              next
+                                case OutRule_Auth_Snd_M1_case_6
+                                by sorry
+                              next
+                                case OutRule_Auth_Snd_M1_case_7
+                                by sorry
+                              next
+                                case OutRule_Auth_Snd_M1_case_8
+                                by sorry
+                              next
+                                case OutRule_Auth_Snd_M1_repeat
                                 by sorry
                               next
                                 case OutRule_Auth_Snd_M3_repeat
                                 by sorry
                               next
-                                case OutRule_Enc_Auth_Rekey_GroupKey_Init
+                                case OutRule_Enc_Auth_Check_MIC_M2_Snd_M3_case_1
                                 by sorry
                               next
-                                case OutRule_Enc_Auth_Rekey_GroupKey_Init_repeat
+                                case OutRule_Enc_Auth_Check_MIC_M2_Snd_M3_case_2
+                                by sorry
+                              next
+                                case OutRule_Enc_Auth_Snd_M1_case_1
+                                by sorry
+                              next
+                                case OutRule_Enc_Auth_Snd_M1_case_2
+                                by sorry
+                              next
+                                case OutRule_Enc_Auth_Snd_M1_case_3
+                                by sorry
+                              next
+                                case OutRule_Enc_Auth_Snd_M1_case_4
+                                by sorry
+                              next
+                                case OutRule_Enc_Auth_Snd_M1_case_5
+                                by sorry
+                              next
+                                case OutRule_Enc_Auth_Snd_M1_case_6
+                                by sorry
+                              next
+                                case OutRule_Enc_Auth_Snd_M1_case_7
+                                by sorry
+                              next
+                                case OutRule_Enc_Auth_Snd_M1_case_8
+                                by sorry
+                              next
+                                case OutRule_Enc_Auth_Snd_M1_repeat
                                 by sorry
                               next
                                 case OutRule_Enc_Auth_Snd_M3_repeat
                                 by sorry
                               next
-                                case c_MIC
-                                by contradiction /* cyclic */
+                                case OutRule_Enc_Auth_WNM_Accept_Awake_Request
+                                by sorry
                               qed
                             next
-                              case Auth_Snd_M1_case_2
-                              by sorry
-                            next
-                              case Auth_Snd_M1_case_3
-                              by sorry
-                            next
-                              case Auth_Snd_M1_case_4
-                              by sorry
-                            next
-                              case Auth_Snd_M1_case_5
-                              by sorry
-                            next
-                              case Auth_Snd_M1_case_6
-                              by sorry
-                            next
-                              case Auth_Snd_M1_case_7
-                              by sorry
-                            next
-                              case Auth_Snd_M1_case_8
-                              by sorry
-                            next
-                              case Auth_Snd_M1_repeat
-                              by sorry
+                              case Receive_Encrypted_Message_Supp
+                              by contradiction /* from formulas */
                             qed
-                          next
-                            case OutRule_Auth_Check_MIC_M2_Snd_M3_case_2
-                            by sorry
                           next
                             case OutRule_Auth_Rekey_GroupKey_Init
                             by sorry
@@ -4778,12 +4819,6 @@ solve( !KU( KDF(<~PMK, ANonce, ~SNonce>) ) @ #vk )
                             by sorry
                           next
                             case OutRule_Auth_Snd_M3_repeat
-                            by sorry
-                          next
-                            case OutRule_Enc_Auth_Check_MIC_M2_Snd_M3_case_1
-                            by sorry
-                          next
-                            case OutRule_Enc_Auth_Check_MIC_M2_Snd_M3_case_2
                             by sorry
                           next
                             case OutRule_Enc_Auth_Rekey_GroupKey_Init
@@ -4798,34 +4833,52 @@ solve( !KU( KDF(<~PMK, ANonce, ~SNonce>) ) @ #vk )
                             case c_senc
                             by contradiction /* cyclic */
                           qed
+                        next
+                          case OutRule_Auth_Check_MIC_M2_Snd_M3_case_2
+                          by sorry
+                        next
+                          case OutRule_Auth_Rekey_GroupKey_Init
+                          by sorry
+                        next
+                          case OutRule_Auth_Rekey_GroupKey_Init_repeat
+                          by sorry
+                        next
+                          case OutRule_Auth_Snd_M3_repeat
+                          by sorry
+                        next
+                          case OutRule_Enc_Auth_Check_MIC_M2_Snd_M3_case_1
+                          by sorry
+                        next
+                          case OutRule_Enc_Auth_Check_MIC_M2_Snd_M3_case_2
+                          by sorry
+                        next
+                          case OutRule_Enc_Auth_Rekey_GroupKey_Init
+                          by sorry
+                        next
+                          case OutRule_Enc_Auth_Rekey_GroupKey_Init_repeat
+                          by sorry
+                        next
+                          case OutRule_Enc_Auth_Snd_M3_repeat
+                          by sorry
+                        next
+                          case c_MIC
+                          by contradiction /* cyclic */
                         qed
                       next
                         case Receive_Encrypted_Message_Supp
                         by contradiction /* from formulas */
                       qed
+                    next
+                      case c_snenc
+                      by contradiction /* cyclic */
                     qed
-                  next
-                    case Supp_Install_Key_Snd_M4_case_1
-                    by sorry
-                  next
-                    case Supp_Install_Key_Snd_M4_case_2
-                    by sorry
-                  next
-                    case Supp_Rekey_GroupKey
-                    by sorry
-                  next
-                    case Supp_WNM_Receive_Awake_Accept
-                    by sorry
-                  next
-                    case receiveGTKEncryptedPayload
-                    by contradiction /* from formulas */
                   qed
                 next
-                  case Supp_Rcv_M3_repeat
+                  case Supp_Install_Key_Snd_M4_case_2
                   by sorry
                 qed
               next
-                case Supp_Install_Key_Snd_M4_case_2
+                case Supp_Rcv_M3_repeat
                 by sorry
               qed
             next
