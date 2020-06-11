@@ -4,11 +4,11 @@ This repository contains a formal model of IEEE 802.11's WPA2 protocol together 
 
 ## Prerequisites
 
-To produce our formal model we used the [Tamarin prover](https://tamarin-prover.github.io/) version 1.5.1 (Git revision: ab0c43dfab9a22a740c4cb6d7fc5cd719db10d2f, branch: develop). Installation instructions for Tamarin can be found [here](https://tamarin-prover.github.io/manual/book/002_installation.html). You need Tamarin to inspect the model, run proofs, and verify existing proofs. Note that Tamarin runs on Linux and Mac, but not on Windows. If you plan to use or edit the model, you also need the [GNU M4 macro preprocessor](https://www.gnu.org/software/m4/).
+To produce our formal model we used the [Tamarin prover](https://tamarin-prover.github.io/) version 1.5.1 (Git revision: ab0c43dfab9a22a740c4cb6d7fc5cd719db10d2f, branch: develop). Installation instructions for Tamarin can be found [here](https://tamarin-prover.github.io/manual/book/002_installation.html). You need Tamarin to inspect the model, run proofs, and verify existing proofs. Note that Tamarin runs on Linux and Mac, but not on Windows. If you plan to use or edit the model, you also need the [GNU M4 macro processor](https://www.gnu.org/software/m4/).
 
 ## Files of the Formal Model
 
-The main file, containing the formal model of WPA2 together with all lemmas, is [model/wpa2_four_way_handshake.m4](model/wpa2_four_way_handshake.m4). This file needs to be preprocessed with the [GNU M4 macro preprocessor](https://www.gnu.org/software/m4/) to turn it into valid input for Tamarin (see below for details). 
+The main file, containing the formal model of WPA2 together with all lemmas, is [model/wpa2_four_way_handshake.m4](model/wpa2_four_way_handshake.m4). This file needs to be preprocessed with the [GNU M4 macro processor](https://www.gnu.org/software/m4/) to turn it into valid input for Tamarin (see below for details). 
 
 If you don't want to use M4 and are only interested in the resulting Tamarin files, then the following two files will be enough for you (note that although these files can be read by Tamarin, the original M4 file is more readable):
 
@@ -52,7 +52,7 @@ The proofs of all lemmas (in the patched model) are contained in the folders [au
 
 Each proof file contains the whole formal model as well as all the lemmas. Only the lemma for which a proof was generated also has a corresponding proof in the file (for the other lemmas, no proof is in the file).
 
-## Inspecting Proofs with Tamarin
+### Inspecting Proofs with Tamarin
 
 To inspect proofs, you can use the so-called *interactive mode* of the Tamarin prover. The interactive mode can be started as follows:
 
@@ -77,6 +77,18 @@ To inspect proofs, you can use the so-called *interactive mode* of the Tamarin p
 <p align="center">
 <img src="images/proof_inspection.png" alt="Screenshot for inspecting a proof" width="600"/>
 </p>
+
+### Generating the Proofs
+
+If you want to generate the proofs for the lemmas of our formal model (except for the ones we proved manually), you can proceed as follows:
+
+1. Open a terminal and go to the root directory of this repository.
+
+2. Execute the script *./proof_generation/generate_proofs.sh* (Command: `./proof_generation/generate_proofs.sh`). Note that it is important to call this script from the root directory and not from some other directory.
+
+3. The proofs for the lemmas will now be generated. The status of each lemma is printed to the terminal. Overall, this should take around one hour on a machine with 16 GB of memory. Our script calls Tamarin via the tool [UT Tamarin](https://github.com/benjaminkiesl/ut_tamarin); UT Tamarin is a wrapper for Tamarin that allows the convenient generation of multiple proofs. Note that UT Tamarin is compiled on the spot, which requires the [g++ compiler](https://gcc.gnu.org/) (Version 7.5 or newer). Moreover, UT Tamarin requires an installed version of Tamarin as well as of the [GNU M4 macro processor](https://www.gnu.org/software/m4/).
+
+When the script is finished, all automatically generated proofs can be found in the directory *./automatic_proofs*.
 
 ## KRACK Attack
 

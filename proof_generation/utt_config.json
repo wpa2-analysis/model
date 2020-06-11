@@ -1,0 +1,108 @@
+{
+	"lemma_blacklist": [ 
+		"supplicant_ptk_is_ku_secret",
+		"supplicant_preliminary_ptk_is_ku_secret",
+		"authenticator_ptk_is_ku_secret",
+		"authenticator_preliminary_ptk_is_ku_secret",
+
+		"authenticator_authentication",
+		"supplicant_authentication",
+		"supplicant_gtk_installation_means_auth_sent_gtk",
+
+		"supplicant_can_wake_up",
+		"supplicant_can_request_sleep",
+		"supplicant_can_start_wnm_thread",
+		"supplicant_can_rcv_m1",
+		"supplicant_can_rcv_m3",
+		"authenticator_can_send_group_key",
+		"can_install_key",
+		"can_perform_handshakes_in_parallel",
+		"can_rekey",
+		"can_receive_group_payloads",
+		"can_rekey_and_group_rekey",
+		"can_setup_key_and_rercv_m3",
+		"attacker_can_read_plain_messages",
+		"supplicant_can_send_m4",
+		"sleep_and_wake_up",
+		"authenticator_can_install_new_gtk",
+		"krack_attack_ptk"
+	],
+	"lemma_whitelist": [],
+	"global_annotations": {
+		"important_facts": [],
+		"unimportant_facts": ["In_Supp", "In_Auth", "AuthGTKState"],
+		"neutral_facts": []
+	},
+	"lemma_annotations": [
+		{
+			"lemma_name": "authenticator_used_ptks_must_be_installed",
+			"important_facts": ["AuthSenderPTK"]
+		},
+		{
+			"lemma_name": "authenticator_use_gtk_must_be_preceded_by_install_gtk",
+			"important_facts": ["AuthGTKState"]
+		},
+		{
+			"lemma_name": "authenticator_use_gtk_must_be_preceded_by_set_share_gtk",
+			"important_facts": ["AuthGTKState"]
+		},
+		{
+			"lemma_name": "supplicant_used_ptks_must_be_installed",
+			"important_facts": ["SuppSenderPTK"]
+		},
+		{
+			"lemma_name": "authenticator_installed_must_be_preceded_by_associate",
+			"unimportant_facts": ["AuthReceiverPTK"]
+		},
+		{
+			"lemma_name": "supplicant_wnm_sleep_thread_has_to_start",
+			"important_facts": ["SuppWNMState"]
+		},
+		{
+			"lemma_name": "authenticator_wnm_sleep_thread_has_to_start",
+			"important_facts": ["AuthWNMState"]
+		},
+		{
+			"lemma_name": "different_ptk_id_must_have_different_ptk_nonce_pairs",
+			"important_facts": ["SuppInstallPTKCommand"]
+		},
+		{
+			"lemma_name": "authenticator_ptk_nonce_pair_is_unique",
+			"important_facts": ["AuthSenderPTK"]
+		},
+		{
+			"lemma_name": "supplicant_ptk_nonce_pair_is_unique",
+			"important_facts": ["SuppSenderPTK"]
+		},
+		{
+			"lemma_name": "authenticator_authentication",
+			"important_facts": ["In_Auth"]
+		},
+		{
+			"lemma_name": "gtk_encryption_nonces_increase_strictly_over_time",
+			"important_facts": ["AuthInstalledGTK"]
+		},
+		{
+			"lemma_name": "authenticator_shared_gtk_must_be_set",
+			"important_facts": ["AuthGTKState"]
+		},
+		{
+			"lemma_name": "authenticator_shared_gtk_is_ku_secret",
+			"unimportant_facts": ["AuthState","AuthGTKState"]
+		},
+		{
+			"lemma_name": "supplicant_gtk_installation_means_auth_sent_gtk",
+			"important_facts": ["In_Supp","AuthStartWNMSleepModeThread"],
+			"unimportant_facts": ["ReceiverGTK","SuppState","SuppReceiverPTK"]
+		},
+		{
+			"lemma_name": "supplicant_gtk_installation_is_unique_for_gtk_id",
+			"important_facts": ["SupplicantInstalledGTK"]
+		},
+		{
+			"lemma_name": "helper_authenticator_gtk_installation_is_unique_for_gtk",
+			"unimportant_facts": ["AuthInstallGTKCommand"],
+			"neutral_facts": ["AuthGTKState"]
+		}
+	]
+}
