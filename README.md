@@ -20,7 +20,7 @@ The first file is obtained from [wpa2_four_way_handshake.m4](model/wpa2_four_way
 
 `m4 wpa2_four_way_handshake.m4 > wpa2_four_way_handshake_patched.spthy`
 
-The second file is obtained from [wpa2_four_way_handshake.m4](model/wpa2_four_way_handshake.m4) by setting the M4 macro `INCLUDE_PATCHES` to false in the header (line 6) of [wpa2_four_way_handshake.m4](model/wpa2_four_way_handshake.m4) and then running:
+The second file is obtained from [wpa2_four_way_handshake.m4](model/wpa2_four_way_handshake.m4) by setting the M4 macro `INCLUDE_PATCHES` to *false* in the header (line 6) of [wpa2_four_way_handshake.m4](model/wpa2_four_way_handshake.m4) and then running:
 
 `m4 wpa2_four_way_handshake.m4 > wpa2_four_way_handshake_unpatched.spthy`
 
@@ -56,6 +56,35 @@ To validate a proof and to inspect it in the Tamarin GUI, just start Tamarin in 
 
 Above, replace `[start_folder_for_interactive_mode]` by the folder from which you want to run Tamarin.
 
+
+Each proof file contains the whole formal model as well as all the lemmas. Only the lemma for which a proof was generated also has a corresponding proof in the file (for the other lemmas, no proof is in the file).
+
+## Inspecting Proofs with Tamarin
+
+To inspect proofs, you can use the so-called *interactive mode* of the Tamarin prover. The interactive mode can be started as follows:
+
+1. Call the command `tamarin-prover interactive .` from within a directory of your choice (we recommend to start interactive mode in a folder different from [automatic_proofs](automatic_proofs), because otherwise Tamarin runs on all the files in this folder, which could take very long).
+
+2. Start the Firefox browser and open the URL http://localhost:3001.
+
+3. Load a proof file by clicking **Browse...** and choosing one of the proof files. Once you've chosen a file, click **Load new theory**:
+
+<p align="center">
+<img src="images/load_theory.png" alt="Screenshot for loading a proof file" width="600"/>
+</p>
+
+4. The proof file should now show up in the list of lemmas (see below). By clicking on the theory name for a given file, you can open the file. Note that this can take a while for larger proofs:
+
+<p align="center">
+<img src="images/open_theory.png" alt="Screenshot for opening a proof file" width="600"/>
+</p>
+
+5. Once a proof file has been loaded successfully, the list of lemmas is shown on the left of the page. Scroll to the corresponding lemma to see its proof. If a proof is colored green and ends with *qed*, it means that Tamarin could successfully check the correctness of the proof:
+
+<p align="center">
+<img src="images/proof_inspection.png" alt="Screenshot for inspecting a proof" width="600"/>
+</p>
+
 ## KRACK Attack
 
 The folder [traces](traces) contains a Tamarin file with an attack trace for a [KRACK attack](https://www.krackattacks.com/) on the WPA2 four-way handshake (in file [krack_attack_ptk.spthy](traces/krack_attack_ptk.spthy)). The attack is on the unpatched model, i.e., the version of the model that does not contain the countermeasures aimed at preventing key-reinstallation attacks. A corresponding picture (produced by Tamarin) showing the attack trace is also contained in the folder: [krack_attack_ptk.png](traces/krack_attack_ptk.png).
@@ -64,8 +93,4 @@ In the picture of the trace, the authenticator is colored purple whereas the sup
 
 ## Kr00k Vulnerability
 
-The [Kr00k vulnerability](https://www.eset.com/int/kr00k/), reported a few days after submission of our paper, does not indicate a vulnerability in the IEEE standard that we analyze; rather, it is related to a flaw in the implementations of some Wi-Fi chips. In particular, a Kr00k attack exploits that---counter to the expected behavior---some (unpatched) Wi-Fi chips still encrypt and transmit messages after a client has been disassociated. The discovery of the Kr00k vulnerability therefore doesn't invalidate any of the results of our analysis. Note that one can observe that Kr00k also has no consequences for the IEEE documents.
-
-## USENIX Artifact Submission
-
-For the USENIX artifact evaluation, we will additionally produce a virtual machine containing the files contained in this repository as well as a pre-installed Tamarin and automatic reproduction scripts in the next weeks.
+The [Kr00k vulnerability](https://www.eset.com/int/kr00k/), reported a few days after submission of our paper, does not indicate a vulnerability in the IEEE standard that we analyze; rather, it is related to a flaw in the implementations of some Wi-Fi chips. In particular, a Kr00k attack exploits that---counter to the expected behavior---some (unpatched) Wi-Fi chips still encrypt and transmit messages after a client has been disassociated. The discovery of the Kr00k vulnerability therefore doesn't invalidate any of the results of our analysis.
