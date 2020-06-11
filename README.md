@@ -48,9 +48,9 @@ The rest of the file then contains all lemmas, followed by existential statement
 
 ## Proof Files
 
-The proofs of all lemmas (in the patched model) are contained in the folder [proofs](proofs). Each file in the folder is named after the lemma it proves, with the suffix '.spthy'. For example, the proof of lemma 'authenticator_ptk_is_secret' is in the file [proofs/authenticator_ptk_is_secret.spthy](proofs/authenticator_ptk_is_secret.spthy). 
+The proofs of all lemmas (in the patched model) are contained in the folders [automatic_proofs](automatic_proofs) (contains the automatically generated proofs) and [manual_proofs](manual_proofs) (contains the manually produced proofs). Each proof file is named after the lemma it proves, with the suffix '.spthy'. For example, the proof of lemma 'authenticator_ptk_is_secret' is in the file [automatic_proofs/authenticator_ptk_is_secret.spthy](automatic_proofs/authenticator_ptk_is_secret.spthy). 
 
-To validate a proof and to inspect it in the Tamarin GUI, just start Tamarin in *interactive mode* and then open the corresponding file (we recommend to start interactive mode in a folder different from [proofs](proofs) because otherwise Tamarin runs on all the files in this folder, which could take very long):
+To validate a proof and to inspect it in the Tamarin GUI, just start Tamarin in *interactive mode* and then open the corresponding file (we recommend to start interactive mode in a folder different from [automatic_proofs](automatic_proofs) because otherwise Tamarin runs on all the files in this folder, which could take very long):
 
 `tamarin-prover --interactive [start_folder_for_interactive_mode]`
 
