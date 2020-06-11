@@ -4,7 +4,7 @@ This repository contains a formal model of IEEE 802.11's WPA2 protocol together 
 
 ## Prerequisites
 
-To produce our formal model we used the [Tamarin prover](https://tamarin-prover.github.io/) version 1.5.1 (Git revision: ab0c43dfab9a22a740c4cb6d7fc5cd719db10d2f, branch: develop). Installation instructions for Tamarin can be found [here](https://tamarin-prover.github.io/manual/book/002_installation.html). You need Tamarin to inspect the model, run proofs, and verify existing proofs. Note that Tamarin runs on Linux and Mac, but not on Windows. If you plan to use or edit the model, you also need the [GNU M4 macro processor](https://www.gnu.org/software/m4/).
+To produce our formal model we used the [Tamarin prover](https://tamarin-prover.github.io/) (version 1.4.1). Installation instructions for Tamarin can be found [here](https://tamarin-prover.github.io/manual/book/002_installation.html). You need Tamarin to inspect the model, run proofs, and verify existing proofs. Note that Tamarin runs on Linux and Mac, but not on Windows. If you plan to use or edit the model, you also need the [GNU M4 macro processor](https://www.gnu.org/software/m4/).
 
 ## Files of the Formal Model
 
