@@ -4,7 +4,7 @@ dnl Lines starting with 'dnl' are comments for the preprocessor m4.
 
 dnl Set 'INCLUDE_PATCHES' to true/false to activate/deactivate the patches
 dnl aimed at preventing key-reinstallation attacks.
-define(INCLUDE_PATCHES, false)
+define(INCLUDE_PATCHES, true)
 
 dnl Tamarin uses '', which is an m4 close quote, so use <! !> for quoting.
 changequote(<!,!>)
@@ -34,15 +34,6 @@ builtins: symmetric-encryption, multiset
 equations: sndec(snenc(message, key, nonce), key) = message
 
 // BEGIN Restrictions
-
-/*// TODO: remove*/
-/**/
-/*restriction OnePairOfAuthSupp:*/
-/*    "All authID1 authThreadID1 suppID1 suppThreadID1 PMK1*/
-/*         authID2 authThreadID2 suppID2 suppThreadID2 PMK2 #i #j.*/
-/*    Associate(authID1, authThreadID1, suppID1, suppThreadID1, PMK1) @ i &*/
-/*    Associate(authID2, authThreadID2, suppID2, suppThreadID2, PMK2) @ j*/
-/*    ==> #i = #j"*/
 
 restriction Neq:
     "All x y #i. Neq(x, y) @ i ==> not(x = y)"
@@ -426,7 +417,6 @@ rule Auth_Snd_M3_repeat [color=ddb4ff]:
 
 OutEncRuleDataFrame(Auth_Snd_M3_repeat, Auth)
 
-// Might want to check if we accept messages encrypted with the old PTK
 rule Auth_Rcv_M4_Install_Key [color=ddb4ff]:
     let 
         oldPTK = KDF(<PMK1, ANonce1, SNonce1>)
@@ -543,8 +533,6 @@ rule Supp_Rcv_M1_Snd_M2_repeat [color=b5d1ff]:
 
 OutEncRuleDataFrame(Supp_Rcv_M1_Snd_M2_repeat, Supp)
 
-
-//TODO: Update Action facts with newGTKData instead of newGTK
 rule Supp_Rcv_M3 [color=b5d1ff]:
     let 
         oldPTK = KDF(<PMK1, ANonce1, SNonce1>)

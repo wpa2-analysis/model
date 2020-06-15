@@ -30,15 +30,6 @@ equations: sndec(snenc(message, key, nonce), key) = message
 
 // BEGIN Restrictions
 
-/*// TODO: remove*/
-/**/
-/*restriction OnePairOfAuthSupp:*/
-/*    "All authID1 authThreadID1 suppID1 suppThreadID1 PMK1*/
-/*         authID2 authThreadID2 suppID2 suppThreadID2 PMK2 #i #j.*/
-/*    Associate(authID1, authThreadID1, suppID1, suppThreadID1, PMK1) @ i &*/
-/*    Associate(authID2, authThreadID2, suppID2, suppThreadID2, PMK2) @ j*/
-/*    ==> #i = #j"*/
-
 restriction Neq:
     "All x y #i. Neq(x, y) @ i ==> not(x = y)"
 
@@ -580,7 +571,6 @@ rule OutRule_Auth_Snd_M3_repeat [color=ffffff]:
 	[ Out(message) ]
 
 
-// Might want to check if we accept messages encrypted with the old PTK
 rule Auth_Rcv_M4_Install_Key [color=ddb4ff]:
     let 
         oldPTK = KDF(<PMK1, ANonce1, SNonce1>)
@@ -729,8 +719,6 @@ rule OutRule_Supp_Rcv_M1_Snd_M2_repeat [color=ffffff]:
 	[ Out(message) ]
 
 
-
-//TODO: Update Action facts with newGTKData instead of newGTK
 rule Supp_Rcv_M3 [color=b5d1ff]:
     let 
         oldPTK = KDF(<PMK1, ANonce1, SNonce1>)
