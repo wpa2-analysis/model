@@ -1,0 +1,16 @@
+Tamarin Tests for file 'test_protocol.spthy':
+Timeout: 3 seconds per lemma
+
+first_true_statement verified (0 seconds) (1/9)
+first_false_statement false (0 seconds) (2/9)
+non_terminating_statement unverified (3 seconds) (3/9)
+second_true_statement verified (0 seconds) (4/9)
+third_true_statement verified (0 seconds) (5/9)
+second_false_statement false (0 seconds) (6/9)
+third_false_statement false (0 seconds) (7/9)
+fourth_true_statement verified (0 seconds) (8/9)
+fifth_true_statement verified (0 seconds) (9/9)
+
+Summary: 
+verified: 5, false: : 3, timeout: 1
+Overall duration: 3 seconds
