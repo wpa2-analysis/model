@@ -1,5 +1,6 @@
 {
-	"lemma_blacklist": [ 
+	"lemma_allow_list": [],
+	"lemma_deny_list": [ 
 		"supplicant_ptk_is_ku_secret",
 		"supplicant_preliminary_ptk_is_ku_secret",
 		"authenticator_ptk_is_ku_secret",
@@ -27,7 +28,6 @@
 		"authenticator_can_install_new_gtk",
 		"krack_attack_ptk"
 	],
-	"lemma_whitelist": [],
 	"global_annotations": {
 		"important_facts": [],
 		"unimportant_facts": ["In_Supp", "In_Auth", "AuthGTKState"],
