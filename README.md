@@ -16,7 +16,7 @@ If you don't want to use M4 and are only interested in the resulting Tamarin fil
 
 * [model/wpa2_four_way_handshake_unpatched.spthy](model/wpa2_four_way_handshake_unpatched.spthy) - A formal model of WPA2 without the patches/countermeasures.
 
-The first file is obtained from [wpa2_four_way_handshake.m4](model/wpa2_four_way_handshake.m4) by runnning the following command:
+The first file is obtained from [wpa2_four_way_handshake.m4](model/wpa2_four_way_handshake.m4) by running the following command:
 
 `m4 wpa2_four_way_handshake.m4 > wpa2_four_way_handshake_patched.spthy`
 
